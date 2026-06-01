@@ -544,26 +544,38 @@ export const calculateTargetDate = (params: {
     } else if (processType.includes('Đối soát')) {
       const subCatNorm = normalizeStr(subcategory || '');
       addLog(`(SLA TTThe Đối soát) Kiểm tra Sub-category: "${subcategory}"`, '🔍');
-      
+      const mappedSeg = getMappedSegment(segment, subSegment);
+      const isAfOrPrivate = (mappedSeg === 'af' || mappedSeg === 'private');
+      addLog(`- Phân khúc xác định: ${mappedSeg.toUpperCase()} (isAfOrPrivate: ${isAfOrPrivate})`, '👥');
+
       const hours6List = [
         'tu van tra gop doi tac',
-        'phat hanh lai the pin', // normalizeStr removes /
+        'phat hanh lai the pin',
+        'phat hanh lai the/pin',
         'mail xu ly',
+        'email xu ly',
+        'gui email xu ly',
         'tinh trang the chua duoc dieu chinh dung',
         'phi sms',
+        'hoan phi sms',
         'tang giam hmctn',
+        'tang/giam hmctn',
         'hoan tien tinh nang the',
         'tra gop ngoai le da tt minpay',
         'tu van tra gop ngoai kenh doi tac'
       ];
       
-      const is6Hours = hours6List.some(rule => subCatNorm.includes(rule));
+      const has6HourSubcategory = hours6List.some(rule => subCatNorm.includes(rule));
       
-      if (is6Hours) {
-        addLog(`- Thuộc nhóm SLA: 6 giờ làm việc.`, '✅');
+      if (isAfOrPrivate && has6HourSubcategory) {
+        addLog(`- Phân khúc AF/Private & Sub-category thuộc danh mục 6 giờ làm việc. Quy định: 6 giờ làm việc.`, '✅');
         slaInfo = { unit: 'hour', value: 6, label: '6 giờ làm việc' };
       } else {
-        addLog(`- Thuộc nhóm SLA mặc định: 14 giờ làm việc.`, '✅');
+        if (!isAfOrPrivate) {
+          addLog(`- Khách hàng không thuộc phân khúc AF/Private. Quy định mặc định: 14 giờ làm việc.`, '✅');
+        } else {
+          addLog(`- Sub-category không thuộc danh mục 6 giờ làm việc. Quy định mặc định: 14 giờ làm việc.`, '✅');
+        }
         slaInfo = { unit: 'hour', value: 14, label: '14 giờ làm việc' };
       }
     } else {

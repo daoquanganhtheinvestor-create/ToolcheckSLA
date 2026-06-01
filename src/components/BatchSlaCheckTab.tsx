@@ -38,6 +38,13 @@ export default function BatchSlaCheckTab() {
   const [results, setResults] = useState<BatchResult[]>([]);
   const [stats, setStats] = useState({ total: 0, correct: 0, wrong: 0, invalid: 0 });
   const [pivotStats, setPivotStats] = useState<Record<string, number>>({});
+  const [invalidBreakdown, setInvalidBreakdown] = useState({
+     emptyOrSummary: 0,
+     missingMilestone: 0,
+     missingCreatedDate: 0,
+     undefinedRule: 0,
+     otherError: 0
+  });
 
   // Fallback parsing date
   const parseDateFallback = (val: any): Date | undefined => {
@@ -88,7 +95,7 @@ export default function BatchSlaCheckTab() {
     setResults([]);
     try {
       const data = await selectedFile.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      const workbook = XLSX.read(new Uint8Array(data), { type: 'array', cellDates: true });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
       const json: RowData[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
@@ -132,37 +139,82 @@ export default function BatchSlaCheckTab() {
       let correct = 0;
       let wrong = 0;
       let invalid = 0;
+      let emptyOrSummary = 0;
+      let missingMilestone = 0;
+      let missingCreatedDate = 0;
+      let undefinedRule = 0;
+      let otherError = 0;
+
       const parsedResults: BatchResult[] = [];
       const pivot: Record<string, number> = {};
 
       json.forEach((row, idx) => {
          const reference = String(getVal(row, 'Mã yêu cầu', 'Mã YC', 'Case Number', 'Reference', 'CaseNumber') || '').trim();
          
-         // Skip empty rows or summary rows
+         // Skip empty rows or summary rows and count them as invalid for statistics consistency
          if (!reference || reference.toLowerCase().includes('tổng cộng') || reference.toLowerCase() === 'null') {
+            invalid++;
+            emptyOrSummary++;
             return;
          }
 
          // Priority for milestone columns
-         const originalProcessTypeVal = getVal(row, 'Cột mốc', 'Tiến độ mốc', 'Mốc', 'Milestone Name', 'SLA Process', 'milestone', 'Process Type', 'Tên mốc', 'SLA mốc') || '-';
-         const createdDateStr = getVal(row, 'Ngày/Thời gian đã mở', 'Ngày tạo', 'Created Date', 'Ngày/Thời gian đã mở', 'Ngày mở', 'Time opened', 'CreatedDate', 'Opened Date', 'Ngày giờ tạo');
+         let pt = ''; let processTypeLower = ''; let detectedLabel = ''; const originalProcessTypeVal = getVal(row, 'Cột mốc', 'Tiến độ mốc', 'Mốc', 'Milestone Name', 'SLA Process', 'milestone', 'Process Type', 'Tên mốc', 'SLA mốc') || '-';
+                   pt = String(originalProcessTypeVal || '').trim();
+          processTypeLower = pt.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').replace(/[–—−⁃－⁻−⎯‑‒]|&ndash;|&mdash;/g, '-').replace(/\s+/g, ' ').trim();
+          detectedLabel = pt;
+          if (processTypeLower.includes('e2e')) {
+              detectedLabel = 'SLA E2E';
+          } else if (processTypeLower.includes('tuyen 1') || processTypeLower.includes('truyen 1') || processTypeLower.includes('t1')) {
+              detectedLabel = 'SLA Process - 247 Tuyến 1';
+          } else if (processTypeLower.includes('tuyen 2') || processTypeLower.includes('truyen 2') || processTypeLower.includes('t2')) {
+              detectedLabel = 'SLA Process - 247 Tuyến 2';
+          } else if (processTypeLower.includes('tra soat')) {
+              detectedLabel = 'SLA Process - TTT Tra soát';
+          } else if (processTypeLower.includes('rcc')) {
+              detectedLabel = 'SLA Process - RCC';
+          } else if (processTypeLower.includes('phat hanh')) {
+              detectedLabel = 'SLA Process - TTT Phát hành';
+          } else if (processTypeLower.includes('doi soat')) {
+              detectedLabel = 'SLA Process - TTThe Đối soát';
+          } else if (processTypeLower.includes('cau hinh')) {
+              detectedLabel = 'SLA Process - TTT Cấu hình';
+          } else if (processTypeLower.includes('tuyen') || processTypeLower.includes('truyen')) {
+              if (processTypeLower.includes('1')) detectedLabel = 'SLA Process - 247 Tuyến 1';
+              else if (processTypeLower.includes('2')) detectedLabel = 'SLA Process - 247 Tuyến 2';
+          }
+          const createdDateStr = getVal(row, 'Ngày/Thời gian đã mở', 'Ngày tạo', 'Created Date', 'Ngày/Thời gian đã mở', 'Ngày mở', 'Time opened', 'CreatedDate', 'Opened Date', 'Ngày giờ tạo');
          const targetDateStr = getVal(row, 'Target Date', 'Hạn xử lý', 'Ngày tới hạn', 'Mốc thời gian dự kiến', 'TargetDate', 'Due Date');
          const slaTypeStr = getVal(row, 'SLA Type', 'Loại yêu cầu', 'Scope', 'Phân loại SLA', 'Phạm vi', 'Quy mô', 'Loại SLA');
-         const vpbStartStr = getVal(row, 'VPB_Start time SLA', 'Assign Date SLA', 'Ngày bắt đầu tính SLA', 'VPB Start time SLA', 'Start time SLA', 'VPB_StartTimeSla', 'Assign Date', 'Assign Time');
+         const rawVpbSlaStartStr = getVal(row, 'VPB_SLAStarttimeSLA', 'Ngày bắt đầu', 'VPB_Start time SLA', 'Assign Date SLA', 'Ngày bắt đầu tính SLA', 'VPB Start time SLA', 'Start time SLA', 'VPB_StartTimeSla', 'Assign Date', 'Assign Time');
          const caseSourceVal = getVal(row, 'Nguồn tạo', 'Source', 'Case Source');
          const caseTypeVal = getVal(row, 'Type', 'Case Type', 'Loại của yêu cầu');
          
          // Setup params
          const createdDate = parseDateFallback(createdDateStr);
          const originalTargetDate = parseDateFallback(targetDateStr);
-         const assignDate = parseDateFallback(vpbStartStr);
+         let vpbStartStr = '';
+          if (detectedLabel === 'SLA Process - 247 Tuyến 2') {
+             vpbStartStr = String(getVal(row, 'VPB_StartTimeSla', 'vpb_starttimesla', 'VPB_SLAStarttimeSLA') || '');
+          } else if (
+             detectedLabel === 'SLA Process - TTT Tra soát' ||
+             detectedLabel === 'SLA Process - RCC' ||
+             detectedLabel === 'SLA Process - TTThe Đối soát' ||
+             detectedLabel === 'SLA Process - TTT Phát hành' ||
+             detectedLabel === 'SLA Process - TTT Cấu hình'
+          ) {
+             vpbStartStr = String(getVal(row, 'Ngày Bắt Đầu  ', 'Ngày bắt đầu', 'Ngày bắt đầu tính SLA', 'Ngay bat dau', 'ngaybatdau') || '');
+          } else {
+             vpbStartStr = String(rawVpbSlaStartStr || '');
+          }
+          const assignDate = parseDateFallback(vpbStartStr);
 
          const ref = reference;
          
-         let pt = String(originalProcessTypeVal || '').trim();
+         pt = String(originalProcessTypeVal || '').trim();
          
          // Try to normalize process type if possible
-         const processTypeLower = pt.toLowerCase()
+         let dummyType = pt.toLowerCase()
              .normalize('NFD')
              .replace(/[\u0300-\u036f]/g, '')
              .replace(/[đĐ]/g, 'd')
@@ -170,7 +222,7 @@ export default function BatchSlaCheckTab() {
              .replace(/\s+/g, ' ')
              .trim();
          
-         let detectedLabel = pt;
+         detectedLabel = pt;
 
          if (processTypeLower.includes('e2e')) {
              detectedLabel = 'SLA E2E';
@@ -209,14 +261,14 @@ export default function BatchSlaCheckTab() {
          };
 
          if (!detectedLabel || detectedLabel === '-') {
-             res.errorMessage = 'Thiếu Cột mốc (SLA Process)';
+             res.errorMessage = 'Thiếu Cột mốc (SLA Process)'; missingMilestone++;
              invalid++;
              parsedResults.push(res);
              return;
          }
 
          if (!createdDate) {
-             res.errorMessage = `Thiếu hoặc lỗi format Ngày/Thời gian mở (${createdDateStr})`;
+             res.errorMessage = `Thiếu hoặc lỗi format Ngày/Thời gian mở (${createdDateStr})`; missingCreatedDate++;
              invalid++;
              parsedResults.push(res);
              return;
@@ -272,7 +324,8 @@ export default function BatchSlaCheckTab() {
                  correct++;
                  res.shortExplanation = 'Đúng hạn';
              } else if (calc.slaLabel.startsWith('Chưa có rule') || calc.slaLabel.startsWith('Chưa xác định')) {
-                 res.shortExplanation = 'Chưa xác định';
+                 res.shortExplanation = 'Chưa xác định'; undefinedRule++;
+                 invalid++;
                  res.updateTargetDateStr = '';
              } else {
                  wrong++;
@@ -283,7 +336,7 @@ export default function BatchSlaCheckTab() {
              }
              
          } catch (e: any) {
-             res.errorMessage = e.message || 'Lỗi tính toán';
+             res.errorMessage = e.message || 'Lỗi tính toán'; otherError++;
              invalid++;
          }
 
@@ -293,6 +346,13 @@ export default function BatchSlaCheckTab() {
       setResults(parsedResults);
       setStats({ total: json.length, correct, wrong, invalid });
       setPivotStats(pivot);
+      setInvalidBreakdown({
+         emptyOrSummary,
+         missingMilestone,
+         missingCreatedDate,
+         undefinedRule,
+         otherError
+      });
       
     } catch (err: any) {
       alert("Lỗi đọc file: " + (err.message || 'Unknown error'));
@@ -335,9 +395,17 @@ export default function BatchSlaCheckTab() {
         'Số lượng sai': count
      }));
      
+     // Add 'Không hợp lệ' to pivot data for transparency
+     if (stats.invalid > 0) {
+        pivotData.push({
+           'Loại SLA': 'LỖI / KHÔNG HỢP LỆ (Dòng bị bỏ qua hoặc thiếu data)',
+           'Số lượng sai': stats.invalid
+        });
+     }
+
      // Add a total row
      if (pivotData.length > 0) {
-        const total = Object.values(pivotStats).reduce((a, b) => a + b, 0);
+        const total = Object.values(pivotStats).reduce((a, b) => a + b, 0) + stats.invalid;
         pivotData.push({
            'Loại SLA': 'TỔNG CỘNG',
            'Số lượng sai': total
@@ -425,6 +493,73 @@ export default function BatchSlaCheckTab() {
                      <span className="text-2xl font-bold text-orange-700">{stats.invalid}</span>
                   </div>
                </div>
+
+               {/* Explanation for discrepancy */}
+               {stats.invalid > 0 && (
+                  <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-5 shadow-sm animate-in fade-in slide-in-from-top-2 duration-500 space-y-3">
+                     <div className="flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                        <h3 className="font-bold text-amber-900 text-sm md:text-base">
+                           Bảng Phân Tích Sự Chênh Lệch Số Liệu (Dòng lỗi/bỏ qua SLA)
+                        </h3>
+                     </div>
+                     
+                     <p className="text-xs md:text-sm text-neutral-600 leading-relaxed">
+                        Theo logic đối chiếu, <strong>Tổng số dòng ({stats.total.toLocaleString()})</strong> bằng với 
+                        tổng số dòng <strong>Đúng ({stats.correct.toLocaleString()})</strong> + <strong>Sai ({stats.wrong.toLocaleString()})</strong> + 
+                        các dòng <strong>Lỗi / Bỏ qua ({stats.invalid.toLocaleString()})</strong>.
+                        Sở dĩ có sự chênh lệch này là do <strong>{stats.invalid.toLocaleString()}</strong> dòng dưới đây không đủ thông tin 
+                        hợp lệ hoặc không có rule để tính toán SLA. Chi tiết các nguyên nhân chênh lệch:
+                     </p>
+                     
+                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 pt-1">
+                        <div className="bg-white border border-amber-100 rounded-lg p-3 flex flex-col justify-between">
+                           <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wide">1. Dòng trống / Tổng cộng</span>
+                           <div className="flex items-baseline gap-2 mt-1">
+                              <span className="text-xl font-bold text-amber-700">{invalidBreakdown.emptyOrSummary}</span>
+                              <span className="text-[11px] text-neutral-400">dòng</span>
+                           </div>
+                           <p className="text-[10px] text-neutral-400 mt-1 italic">Hàng trống hoặc dòng tổng cộng cuối file</p>
+                        </div>
+                        
+                        <div className="bg-white border border-amber-100 rounded-lg p-3 flex flex-col justify-between">
+                           <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wide">2. Thiếu cột mốc</span>
+                           <div className="flex items-baseline gap-2 mt-1">
+                              <span className="text-xl font-bold text-amber-700">{invalidBreakdown.missingMilestone}</span>
+                              <span className="text-[11px] text-neutral-400">dòng</span>
+                           </div>
+                           <p className="text-[10px] text-neutral-400 mt-1 italic">Không dữ liệu hoặc trống cột mốc xử lý</p>
+                        </div>
+
+                        <div className="bg-white border border-amber-100 rounded-lg p-3 flex flex-col justify-between">
+                           <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wide">3. Sai ngày mở (Created)</span>
+                           <div className="flex items-baseline gap-2 mt-1">
+                              <span className="text-xl font-bold text-amber-700">{invalidBreakdown.missingCreatedDate}</span>
+                              <span className="text-[11px] text-neutral-400">dòng</span>
+                           </div>
+                           <p className="text-[10px] text-neutral-400 mt-1 italic">Trống ngày mở hoặc sai định dạng date</p>
+                        </div>
+
+                        <div className="bg-white border border-amber-100 rounded-lg p-3 flex flex-col justify-between">
+                           <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wide">4. Mốc chưa có rule</span>
+                           <div className="flex items-baseline gap-2 mt-1">
+                              <span className="text-xl font-bold text-amber-700">{invalidBreakdown.undefinedRule}</span>
+                              <span className="text-[11px] text-neutral-400">dòng</span>
+                           </div>
+                           <p className="text-[10px] text-neutral-400 mt-1 italic">Tên mốc thuộc loại chưa được cấu hình rule</p>
+                        </div>
+
+                        <div className="bg-white border border-amber-100 rounded-lg p-3 flex flex-col justify-between">
+                           <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wide">5. Lỗi xử lý khác</span>
+                           <div className="flex items-baseline gap-2 mt-1">
+                              <span className="text-xl font-bold text-amber-700">{invalidBreakdown.otherError}</span>
+                              <span className="text-[11px] text-neutral-400">dòng</span>
+                           </div>
+                           <p className="text-[10px] text-neutral-400 mt-1 italic">Lỗi parse hoặc ngoại lệ tính toán hệ thống</p>
+                        </div>
+                     </div>
+                  </div>
+               )}
 
                {/* Pivot Summary UI */}
                {Object.keys(pivotStats).length > 0 && (

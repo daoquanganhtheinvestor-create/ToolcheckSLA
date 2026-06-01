@@ -41,8 +41,8 @@ export function FileUpload({ onProcessRef }: UploadProps) {
     setProcessedData([]);
     const reader = new FileReader();
     reader.onload = (e) => {
-      const arrayBuffer = e.target?.result;
-      const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+      const arrayBuffer = e.target?.result as ArrayBuffer;
+      const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', cellDates: true });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
       const json: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
@@ -177,7 +177,7 @@ export function FileUpload({ onProcessRef }: UploadProps) {
         const reasonStr = String(getCol(row, ['nguyên nhân', 'reason', 'nguyen nhan']) || '');
         const titleStr = String(getCol(row, ['tiêu đề', 'title', 'tieu de']) || '');
         const aptCodeStr = String(getCol(row, ['apt code', 'apt']) || '');
-        const assignDateRaw = getCol(row, ['ngày assign tuyến 2', 'ngày assign', 'assign date', 'ngày chuyển tuyến 2']);
+        const rawAssignDateRaw = getCol(row, ['vpb_slastarttimesla', 'ngày bắt đầu', 'vpb_start time sla', 'ngày assign tuyến 2', 'ngày assign', 'assign date', 'ngày chuyển tuyến 2', 'ngày bắt đầu tính sla', 'vpb start time sla', 'start time sla', 'vpb_starttimesla', 'assign date sla', 'assign time']);
         
         // ... (keep rest)
         
@@ -185,6 +185,21 @@ export function FileUpload({ onProcessRef }: UploadProps) {
         if (processTypeVal && typeof processTypeVal === 'string') {
            const match = PROCESS_TYPES.find(p => p.toLowerCase() === processTypeVal.toLowerCase());
            if (match) processType = match;
+        }
+
+        let assignDateRaw = '';
+        if (processType === 'SLA Process - 247 Tuyến 2') {
+           assignDateRaw = getCol(row, ['vpb_starttimesla', 'vpb_slastarttimesla', 'vpb_start time sla', 'vpb start time sla', 'start time sla']);
+        } else if (
+           processType === 'SLA Process - TTT Tra soát' ||
+           processType === 'SLA Process - RCC' ||
+           processType === 'SLA Process - TTThe Đối soát' ||
+           processType === 'SLA Process - TTT Phát hành' ||
+           processType === 'SLA Process - TTT Cấu hình'
+        ) {
+           assignDateRaw = getCol(row, ['ngày bắt đầu', 'ngay bat dau', 'ngày bắt đầu tính sla']);
+        } else {
+           assignDateRaw = rawAssignDateRaw;
         }
 
         const rowScope = typeof row['Loại xử lý'] === 'string' && row['Loại xử lý'] ? row['Loại xử lý'] as ProcessingScope : undefined;

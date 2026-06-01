@@ -81,7 +81,7 @@ export default function SlaAiAnalysisTab() {
 
     try {
       const data = await selectedFile.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      const workbook = XLSX.read(new Uint8Array(data), { type: 'array', cellDates: true });
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const json: RowData[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
@@ -120,11 +120,11 @@ export default function SlaAiAnalysisTab() {
         const createdDateStr = getVal(row, 'Ngày/Thời gian đã mở', 'Ngày tạo', 'Created Date', 'CreatedDate');
         const targetDateStr = getVal(row, 'Target Date', 'Hạn xử lý', 'Ngày tới hạn');
         const slaTypeStr = getVal(row, 'SLA Type', 'Loại yêu cầu', 'Scope');
-        const vpbStartStr = getVal(row, 'VPB_Start time SLA', 'Assign Date');
+        const rawVpbSlaStartStr = getVal(row, 'VPB_SLAStarttimeSLA', 'Ngày bắt đầu', 'VPB_Start time SLA', 'Assign Date', 'Ngày bắt đầu tính SLA', 'VPB Start time SLA', 'Start time SLA', 'VPB_StartTimeSla', 'Assign Date SLA');
 
         const createdDate = parseDateFallback(createdDateStr);
         const originalTargetDate = parseDateFallback(targetDateStr);
-        const assignDate = parseDateFallback(vpbStartStr);
+        let vpbStartStr = ''; let assignDate: Date | undefined = undefined;
 
         if (!createdDate) return;
 
@@ -163,6 +163,21 @@ export default function SlaAiAnalysisTab() {
         } else if (processTypeLower.includes('cau hinh')) {
             detectedLabel = 'SLA Process - TTT Cấu hình';
         }
+
+        if (detectedLabel === 'SLA Process - 247 Tuyến 2') {
+          vpbStartStr = String(getVal(row, 'VPB_StartTimeSla', 'vpb_starttimesla', 'VPB_SLAStarttimeSLA') || '');
+        } else if (
+          detectedLabel === 'SLA Process - TTT Tra soát' ||
+          detectedLabel === 'SLA Process - RCC' ||
+          detectedLabel === 'SLA Process - TTThe Đối soát' ||
+          detectedLabel === 'SLA Process - TTT Phát hành' ||
+          detectedLabel === 'SLA Process - TTT Cấu hình'
+        ) {
+          vpbStartStr = String(getVal(row, 'Ngày Bắt Đầu  ', 'Ngày bắt đầu', 'Ngày bắt đầu tính SLA', 'Ngay bat dau', 'ngaybatdau') || '');
+        } else {
+          vpbStartStr = String(rawVpbSlaStartStr || '');
+        }
+        assignDate = parseDateFallback(vpbStartStr) || undefined;
 
         let scope = 'Xử lý yêu cầu toàn phần' as any;
         const ts = String(slaTypeStr).toLowerCase();
@@ -269,7 +284,7 @@ Logic chuẩn:
 - RCC: AF/Private = 5h, Khác = 10h.
 - TTT Cấu hình: AF/Private = 1 ngày, Khác = 2 ngày.
 - TTT Phát hành (chưa nhận pin/thẻ...): AF/Private = 3 ngày, Khác = 4 ngày.
-- TTThe Đối soát: 6h hoặc 14h tùy subcategory.
+- TTThe Đối soát: AF/Private = 6h hoặc 14h tùy subcategory, Khác = 14h làm việc.
 
 Thống kê các case sai:
 1. Theo Quy trình: ${JSON.stringify(contextData.stats.byProcess)}

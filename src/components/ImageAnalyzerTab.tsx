@@ -287,7 +287,7 @@ Return ONLY a valid JSON object matching this schema, no markdown:
        return;
      }
 
-     if (pType === 'SLA Process - 247 Tuyến 1' && (!currentScope || currentScope === '')) {
+     if (pType === 'SLA Process - 247 Tuyến 1' && !currentScope) {
        setError("Vui lòng chọn phạm vi xử lý cho Tuyến 1.");
        setCalcResult(null);
        return;
