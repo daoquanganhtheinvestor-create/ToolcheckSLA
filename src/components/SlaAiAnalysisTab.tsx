@@ -162,6 +162,10 @@ export default function SlaAiAnalysisTab() {
             detectedLabel = 'SLA Process - TTThe Đối soát';
         } else if (processTypeLower.includes('cau hinh')) {
             detectedLabel = 'SLA Process - TTT Cấu hình';
+        } else if (processTypeLower.includes('247 ptt') || processTypeLower.includes('ptt 247') || (processTypeLower.includes('ptt') && processTypeLower.includes('247'))) {
+            detectedLabel = 'SLA Process - PTT 247';
+        } else if (processTypeLower.includes('ptt eban') || processTypeLower.includes('ebanking') || processTypeLower.includes('ptt') || processTypeLower.includes('e-banking')) {
+            detectedLabel = 'SLA Process PTT Ebanking';
         }
 
         if (detectedLabel === 'SLA Process - 247 Tuyến 2') {
@@ -171,7 +175,9 @@ export default function SlaAiAnalysisTab() {
           detectedLabel === 'SLA Process - RCC' ||
           detectedLabel === 'SLA Process - TTThe Đối soát' ||
           detectedLabel === 'SLA Process - TTT Phát hành' ||
-          detectedLabel === 'SLA Process - TTT Cấu hình'
+          detectedLabel === 'SLA Process - TTT Cấu hình' ||
+          detectedLabel === 'SLA Process PTT Ebanking' ||
+          detectedLabel === 'SLA Process - PTT 247'
         ) {
           vpbStartStr = String(getVal(row, 'Ngày Bắt Đầu  ', 'Ngày bắt đầu', 'Ngày bắt đầu tính SLA', 'Ngay bat dau', 'ngaybatdau') || '');
         } else {
@@ -179,11 +185,16 @@ export default function SlaAiAnalysisTab() {
         }
         assignDate = parseDateFallback(vpbStartStr) || undefined;
 
+        const isSlaTypeNull = !slaTypeStr || String(slaTypeStr).trim() === '' || String(slaTypeStr).toLowerCase().trim() === 'null' || String(slaTypeStr).toLowerCase().trim() === 'undefined';
         let scope = 'Xử lý yêu cầu toàn phần' as any;
-        const ts = String(slaTypeStr).toLowerCase();
-        if (ts.includes('1 phan')) scope = 'Xử lý yêu cầu 1 phần';
-        else if (ts.includes('ngoai pham vi')) scope = 'Xử lý ngoài phạm vi';
-        else if (ts.includes('ngoai le')) scope = 'Yêu cầu ngoại lệ';
+        if (detectedLabel === 'SLA Process - 247 Tuyến 1' && isSlaTypeNull) {
+          scope = 'Xử lý ngoài phạm vi';
+        } else {
+          const ts = String(slaTypeStr || '').toLowerCase();
+          if (ts.includes('1 phan')) scope = 'Xử lý yêu cầu 1 phần';
+          else if (ts.includes('ngoai pham vi')) scope = 'Xử lý ngoài phạm vi';
+          else if (ts.includes('ngoai le')) scope = 'Yêu cầu ngoại lệ';
+        }
 
         try {
           const calc = calculateTargetDate({
@@ -284,7 +295,10 @@ Logic chuẩn:
 - RCC: AF/Private = 5h, Khác = 10h.
 - TTT Cấu hình: AF/Private = 1 ngày, Khác = 2 ngày.
 - TTT Phát hành (chưa nhận pin/thẻ...): AF/Private = 3 ngày, Khác = 4 ngày.
-- TTThe Đối soát: AF/Private = 6h hoặc 14h tùy subcategory, Khác = 14h làm việc.
+- TTThe Đối soát: Tra soát DST = 3 ngày, Tra soát DST-NEO = 2 ngày (áp dụng mọi phân khúc). Các sub-category 6h/14h còn lại: AF/Private = 6h hoặc 14h tùy subcategory, Khác = 14h làm việc.
+- PTT 247: Điều chỉnh nội dung = 2 ngày, Hỗ trợ nhờ thu = 2 ngày, Truy vấn trạng thái = 3 ngày, YC xác nhận báo có = 4 ngày.
+- SLA E2E & 247 Tuyến 2: Tra soát chuyển khoản nội bộ - CRU = 5 ngày làm việc.
+- 247 Tuyến 1: Nếu SLA Type/Scope = null hoặc trống hoặc "null", coi là "Xử lý ngoài phạm vi" (AF/Private = 2 giờ làm việc, Khác/Mass = 4 giờ làm việc).
 
 Thống kê các case sai:
 1. Theo Quy trình: ${JSON.stringify(contextData.stats.byProcess)}

@@ -42,7 +42,9 @@ export const PROCESS_TYPES = [
   'SLA Process - RCC',
   'SLA Process - TTT Phát hành',
   'SLA Process - TTThe Đối soát',
-  'SLA Process - TTT Cấu hình'
+  'SLA Process - TTT Cấu hình',
+  'SLA Process PTT Ebanking',
+  'SLA Process - PTT 247'
 ];
 
 export interface SLAConfig {
@@ -259,7 +261,9 @@ export const PROCESS_WITH_ASSIGN_DATE = [
   'SLA Process - TTT Phát hành',
   'SLA Process - TTThe Đối soát',
   'SLA Process - TTT Cấu hình',
-  'SLA Process - TTT Tra soát'
+  'SLA Process - TTT Tra soát',
+  'SLA Process PTT Ebanking',
+  'SLA Process - PTT 247'
 ];
 
 export const calculateTargetDate = (params: {
@@ -347,15 +351,16 @@ export const calculateTargetDate = (params: {
 
       const normSource = normalizeStr(source || '');
       const normReason = normalizeStr(reason || '');
+      const isEmail = normSource.includes('mail') || normSource.includes('email') || normSource.includes('e-mail');
 
       for (const rule of SLA_E2E_RULES) {
          let isMatch = false;
-         if (rule.conditions.subCategory && rule.conditions.subCategory.some(v => subCat === normalizeStr(v))) isMatch = true;
+         if (rule.conditions.subCategory && rule.conditions.subCategory.some(v => flattenForCompare(subcategory || '') === flattenForCompare(v))) isMatch = true;
          if (!isMatch && rule.conditions.processingUnit && rule.conditions.processingUnit.some(v => procUnit.includes(normalizeStr(v)))) isMatch = true;
          if (!isMatch && rule.conditions.responsibleUnit && rule.conditions.responsibleUnit.some(v => respUnit.includes(normalizeStr(v)))) isMatch = true;
          if (!isMatch && rule.conditions.title && rule.conditions.title.some(v => titleNorm.includes(normalizeStr(v)))) isMatch = true;
          if (!isMatch && rule.conditions.aptCode && rule.conditions.aptCode.some(v => aptNorm.includes(normalizeStr(v)))) isMatch = true;
-         if (!isMatch && rule.conditions.source && rule.conditions.source.some(v => normSource.includes(normalizeStr(v)))) isMatch = true;
+         if (!isMatch && rule.conditions.source && rule.conditions.source.some(v => normSource.includes(normalizeStr(v)) || (normalizeStr(v) === 'email' && isEmail))) isMatch = true;
          if (!isMatch && rule.conditions.reason && rule.conditions.reason.some(v => normReason.includes(normalizeStr(v)))) isMatch = true;
 
          // if empty conditions, it's the catch-all
@@ -366,7 +371,15 @@ export const calculateTargetDate = (params: {
          if (isMatch) {
             hitRule = true;
             matchedSla = rule.slas[colIdx];
-            addLog(`Tìm thấy rule E2E: "${rule.name}" => Mức SLA: ${matchedSla}`, '🎯', true);
+            
+            const hasSubCatCondition = rule.conditions.subCategory && rule.conditions.subCategory.length > 0;
+            if (isEmail && (!hasSubCatCondition || rule.name === 'Các case có source là Email' || rule.name === 'Các nghiệp vụ khác')) {
+               const isAFOrPrivate = (mappedSeg === 'af' || mappedSeg === 'private');
+               matchedSla = isAFOrPrivate ? 1 : 2;
+               addLog(`Các subcategory còn lại nhận qua Email, Phân khúc: ${segment || 'Chưa rõ'} (${mappedSeg}) => SLA E2E: ${matchedSla} ngày (AF/Private = 1 ngày, khác = 2 ngày)`, '✉️', true);
+            } else {
+               addLog(`Tìm thấy rule E2E: "${rule.name}" => Mức SLA: ${matchedSla}`, '🎯', true);
+            }
             break;
          }
       }
@@ -381,13 +394,20 @@ export const calculateTargetDate = (params: {
              resSlaInfo = parseSLA(matchedSla);
          }
       } else {
-         addLog(`- Không tìm thấy rule đặc thù cho Sub-category này.`, 'ℹ️');
-         if (processType !== 'SLA E2E' && scope === 'Xử lý ngoài phạm vi') {
-             addLog(`- Phát hiện loại "Ngoài phạm vi": SLA mặc định 1 ngày làm việc.`, '📌');
-             resSlaInfo = { unit: 'day', value: 1, label: '1 ngày làm việc' };
+         if (isEmail) {
+            const isAFOrPrivate = (mappedSeg === 'af' || mappedSeg === 'private');
+            const emailSlaVal = isAFOrPrivate ? 1 : 2;
+            addLog(`Không tìm thấy rule, áp dụng mặc định Email => SLA E2E: ${emailSlaVal} ngày làm việc`, '✉️', true);
+            resSlaInfo = { unit: 'day', value: emailSlaVal, label: `${emailSlaVal} ngày làm việc` };
          } else {
-             resSlaInfo = parseSLA(e2eSlaStr, { unit: 'none', value: 0, label: `Chưa có rule E2E` });
-             if (resSlaInfo.label === 'Chưa có rule E2E') resIsNone = true;
+            addLog(`- Không tìm thấy rule đặc thù cho Sub-category này.`, 'ℹ️');
+            if (processType !== 'SLA E2E' && scope === 'Xử lý ngoài phạm vi') {
+                addLog(`- Phát hiện loại "Ngoài phạm vi": SLA mặc định 1 ngày làm việc.`, '📌');
+                resSlaInfo = { unit: 'day', value: 1, label: '1 ngày làm việc' };
+            } else {
+                resSlaInfo = parseSLA(e2eSlaStr, { unit: 'none', value: 0, label: `Chưa có rule E2E` });
+                if (resSlaInfo.label === 'Chưa có rule E2E') resIsNone = true;
+            }
          }
       }
       return { slaInfo: resSlaInfo, hitRule, matchedSla, isNone: resIsNone };
@@ -472,7 +492,7 @@ export const calculateTargetDate = (params: {
       let matchedSub4h = '';
       addLog(`(Tuyến 2) Kiểm tra Rule ưu tiên 4h cho Sub-category...`, '🔍');
       for (const sub of TUYEN_2_4H_SUBCATS) {
-        if (normSubCat === normalizeStr(sub)) {
+        if (flattenForCompare(subcategory || '') === flattenForCompare(sub)) {
           is4h = true;
           matchedSub4h = sub;
           break;
@@ -548,35 +568,130 @@ export const calculateTargetDate = (params: {
       const isAfOrPrivate = (mappedSeg === 'af' || mappedSeg === 'private');
       addLog(`- Phân khúc xác định: ${mappedSeg.toUpperCase()} (isAfOrPrivate: ${isAfOrPrivate})`, '👥');
 
-      const hours6List = [
-        'tu van tra gop doi tac',
-        'phat hanh lai the pin',
-        'phat hanh lai the/pin',
-        'mail xu ly',
-        'email xu ly',
-        'gui email xu ly',
-        'tinh trang the chua duoc dieu chinh dung',
-        'phi sms',
-        'hoan phi sms',
-        'tang giam hmctn',
-        'tang/giam hmctn',
-        'hoan tien tinh nang the',
-        'tra gop ngoai le da tt minpay',
-        'tu van tra gop ngoai kenh doi tac'
-      ];
-      
-      const has6HourSubcategory = hours6List.some(rule => subCatNorm.includes(rule));
-      
-      if (isAfOrPrivate && has6HourSubcategory) {
-        addLog(`- Phân khúc AF/Private & Sub-category thuộc danh mục 6 giờ làm việc. Quy định: 6 giờ làm việc.`, '✅');
-        slaInfo = { unit: 'hour', value: 6, label: '6 giờ làm việc' };
-      } else {
-        if (!isAfOrPrivate) {
-          addLog(`- Khách hàng không thuộc phân khúc AF/Private. Quy định mặc định: 14 giờ làm việc.`, '✅');
+      if (subCatNorm.includes('i2b') && (subCatNorm.includes('billing') || subCatNorm.includes('top up')) && subCatNorm.includes('dst')) {
+        if (subCatNorm.includes('neo')) {
+          addLog(`- Khớp Sub-category đặc biệt: "Tra soát I2B - Billing/ TOP UP - DST-NEO". Quy định: 2 ngày làm việc (Áp dụng cho tất cả phân khúc).`, '✅');
+          slaInfo = { unit: 'day', value: 2, label: '2 ngày làm việc' };
         } else {
-          addLog(`- Sub-category không thuộc danh mục 6 giờ làm việc. Quy định mặc định: 14 giờ làm việc.`, '✅');
+          addLog(`- Khớp Sub-category đặc biệt: "Tra soát I2B - Billing/ TOP UP - DST". Quy định: 3 ngày làm việc (Áp dụng cho tất cả phân khúc).`, '✅');
+          slaInfo = { unit: 'day', value: 3, label: '3 ngày làm việc' };
         }
-        slaInfo = { unit: 'hour', value: 14, label: '14 giờ làm việc' };
+      } else {
+        const hours6List = [
+          'tu van tra gop doi tac',
+          'phat hanh lai the pin',
+          'phat hanh lai the/pin',
+          'mail xu ly',
+          'email xu ly',
+          'gui email xu ly',
+          'tinh trang the chua duoc dieu chinh dung',
+          'phi sms',
+          'hoan phi sms',
+          'tang giam hmctn',
+          'tang/giam hmctn',
+          'hoan tien tinh nang the',
+          'tra gop ngoai le da tt minpay',
+          'tu van tra gop ngoai kenh doi tac'
+        ];
+        
+        const has6HourSubcategory = hours6List.some(rule => subCatNorm.includes(rule));
+        
+        if (isAfOrPrivate && has6HourSubcategory) {
+          addLog(`- Phân khúc AF/Private & Sub-category thuộc danh mục 6 giờ làm việc. Quy định: 6 giờ làm việc.`, '✅');
+          slaInfo = { unit: 'hour', value: 6, label: '6 giờ làm việc' };
+        } else {
+          if (!isAfOrPrivate) {
+            addLog(`- Khách hàng không thuộc phân khúc AF/Private. Quy định mặc định: 14 giờ làm việc.`, '✅');
+          } else {
+            addLog(`- Sub-category không thuộc danh mục 6 giờ làm việc. Quy định mặc định: 14 giờ làm việc.`, '✅');
+          }
+          slaInfo = { unit: 'hour', value: 14, label: '14 giờ làm việc' };
+        }
+      }
+    } else if (processType === 'SLA Process PTT Ebanking') {
+      addLog(`(SLA Process PTT Ebanking) Kiểm tra Sub-category CRM...`, '🔍');
+      addLog(`- Sub-category: "${subcategory || 'Trống'}"`, '⚙️');
+      
+      const subCatNorm = normalizeStr(subcategory || '');
+      let days = 0;
+      let matchedName = '';
+      
+      if (subCatNorm.includes('noi bo') && subCatNorm.includes('ptt')) {
+        if (subCatNorm.includes('neo')) {
+          days = 1;
+          matchedName = 'Tra soát chuyển khoản nội bộ- PTT - NEO';
+        } else {
+          days = 1;
+          matchedName = 'Tra soát chuyển khoản nội bộ- PTT';
+        }
+      } else if (subCatNorm.includes('lien ngan hang') && subCatNorm.includes('ptt')) {
+        days = 1;
+        matchedName = 'Tra soát giao dịch chuyển khoản liên ngân hàng- PTT - NEO';
+      } else if (subCatNorm.includes('i2b') && (subCatNorm.includes('billing') || subCatNorm.includes('top up')) && subCatNorm.includes('ptt')) {
+        if (subCatNorm.includes('neo')) {
+          days = 2;
+          matchedName = 'Tra soát I2B - Billing/ TOP UP - PTT - NEO';
+        } else {
+          days = 2;
+          matchedName = 'Tra soát I2B - Billing/ TOP UP - PTT';
+        }
+      }
+      
+      if (days > 0) {
+        addLog(`Tìm thấy Rule PTT Ebanking khớp: "${matchedName}"`, '✅', true);
+        addLog(`- Thời hạn: ${days} ngày làm việc (Áp dụng cho tất cả phân khúc)`, '🕒');
+        slaInfo = { unit: 'day', value: days, label: `${days} ngày làm việc` };
+      } else {
+        addLog(`Không tìm thấy rule khớp cho Sub-category này trong SLA Process PTT Ebanking.`, '⚠️', true);
+        slaInfo = { unit: 'none', value: 0, label: 'Chưa có rule PTT Ebanking' };
+        isNone = true;
+      }
+    } else if (processType === 'SLA Process - PTT 247') {
+      addLog(`(SLA Process - PTT 247) Kiểm tra Sub-category CRM...`, '🔍');
+      addLog(`- Sub-category: "${subcategory || 'Trống'}"`, '⚙️');
+      
+      const subCatNorm = normalizeStr(subcategory || '');
+      let days = 0;
+      let matchedName = '';
+      
+      if (subCatNorm.includes('24/7') && subCatNorm.includes('napas')) {
+        if (subCatNorm.includes('dieu chinh') || subCatNorm.includes('noi dung')) {
+          days = 2;
+          matchedName = 'Tra soát GD ck nhanh 24/7 NAPAS – Điều chỉnh nội dung';
+        } else if (subCatNorm.includes('nho thu')) {
+          days = 2;
+          matchedName = 'Tra soát GD ck nhanh 24/7 NAPAS – Hỗ trợ nhờ thu';
+        } else if (subCatNorm.includes('truy van') || subCatNorm.includes('trang thai')) {
+          days = 3;
+          matchedName = 'Tra soát GD ck nhanh 24/7 NAPAS – Truy vấn trạng thái GD';
+        } else if (subCatNorm.includes('bao co') || subCatNorm.includes('xac nhan')) {
+          days = 4;
+          matchedName = 'Tra soát GD ck nhanh 24/7 NAPAS – YC xác nhận báo có';
+        }
+      } else {
+        if (subCatNorm.includes('dieu chinh noi dung')) {
+          days = 2;
+          matchedName = 'Tra soát GD ck nhanh 24/7 NAPAS – Điều chỉnh nội dung';
+        } else if (subCatNorm.includes('nho thu')) {
+          days = 2;
+          matchedName = 'Tra soát GD ck nhanh 24/7 NAPAS – Hỗ trợ nhờ thu';
+        } else if (subCatNorm.includes('truy van trang thai')) {
+          days = 3;
+          matchedName = 'Tra soát GD ck nhanh 24/7 NAPAS – Truy vấn trạng thái GD';
+        } else if (subCatNorm.includes('xac nhan bao co') || subCatNorm.includes('bao co')) {
+          days = 4;
+          matchedName = 'Tra soát GD ck nhanh 24/7 NAPAS – YC xác nhận báo có';
+        }
+      }
+      
+      if (days > 0) {
+        addLog(`Tìm thấy Rule PTT 247 khớp: "${matchedName}"`, '✅', true);
+        addLog(`- Thời hạn: ${days} ngày làm việc (Áp dụng cho tất cả phân khúc)`, '🕒');
+        slaInfo = { unit: 'day', value: days, label: `${days} ngày làm việc` };
+      } else {
+        addLog(`Không tìm thấy rule khớp cho Sub-category này trong SLA Process - PTT 247.`, '⚠️', true);
+        slaInfo = { unit: 'none', value: 0, label: 'Chưa có rule PTT 247' };
+        isNone = true;
       }
     } else {
       addLog(`Cảnh báo: Loại quy trình (Process Type) lạ: "${processType}".`, '⚠️');

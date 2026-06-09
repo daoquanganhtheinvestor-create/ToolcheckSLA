@@ -195,14 +195,38 @@ export function FileUpload({ onProcessRef }: UploadProps) {
            processType === 'SLA Process - RCC' ||
            processType === 'SLA Process - TTThe Đối soát' ||
            processType === 'SLA Process - TTT Phát hành' ||
-           processType === 'SLA Process - TTT Cấu hình'
+           processType === 'SLA Process - TTT Cấu hình' ||
+           processType === 'SLA Process - PTT 247' ||
+          processType === 'SLA Process PTT Ebanking'
         ) {
            assignDateRaw = getCol(row, ['ngày bắt đầu', 'ngay bat dau', 'ngày bắt đầu tính sla']);
         } else {
            assignDateRaw = rawAssignDateRaw;
         }
 
-        const rowScope = typeof row['Loại xử lý'] === 'string' && row['Loại xử lý'] ? row['Loại xử lý'] as ProcessingScope : undefined;
+        const rawScopeVal = getCol(row, ['Loại xử lý', 'SLA Type', 'Loại yêu cầu', 'Scope', 'SLA_Type', 'Loại SLA', 'Phân loại SLA', 'Phạm vi', 'Quy mô']);
+        const isScopeNull = !rawScopeVal || String(rawScopeVal).trim() === '' || String(rawScopeVal).toLowerCase().trim() === 'null' || String(rawScopeVal).toLowerCase().trim() === 'undefined';
+        
+        let rowScope: ProcessingScope | undefined = undefined;
+        if (processType === 'SLA Process - 247 Tuyến 1') {
+          if (isScopeNull) {
+            rowScope = 'Xử lý ngoài phạm vi';
+          } else {
+            const ts = String(rawScopeVal).toLowerCase();
+            if (ts.includes('1 phan')) rowScope = 'Xử lý yêu cầu 1 phần';
+            else if (ts.includes('ngoai pham vi')) rowScope = 'Xử lý ngoài phạm vi';
+            else if (ts.includes('ngoai le')) rowScope = 'Yêu cầu ngoại lệ';
+            else rowScope = 'Xử lý yêu cầu toàn phần';
+          }
+        } else {
+          if (!isScopeNull) {
+            const ts = String(rawScopeVal).toLowerCase();
+            if (ts.includes('1 phan')) rowScope = 'Xử lý yêu cầu 1 phần';
+            else if (ts.includes('ngoai pham vi')) rowScope = 'Xử lý ngoài phạm vi';
+            else if (ts.includes('ngoai le')) rowScope = 'Yêu cầu ngoại lệ';
+            else rowScope = 'Xử lý yêu cầu toàn phần';
+          }
+        }
 
         const createdDate = parseDateStr(createdDateStr);
         let startStr = '';

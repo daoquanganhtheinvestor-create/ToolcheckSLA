@@ -30,6 +30,7 @@ interface BatchResult {
   updateTargetDateStr: string;
   shortExplanation: string;
   explanationSteps?: any[];
+  targetResponseMinutes?: string;
 }
 
 export default function BatchSlaCheckTab() {
@@ -179,6 +180,10 @@ export default function BatchSlaCheckTab() {
               detectedLabel = 'SLA Process - TTThe Đối soát';
           } else if (processTypeLower.includes('cau hinh')) {
               detectedLabel = 'SLA Process - TTT Cấu hình';
+          } else if (processTypeLower.includes('247 ptt') || processTypeLower.includes('ptt 247') || (processTypeLower.includes('ptt') && processTypeLower.includes('247'))) {
+              detectedLabel = 'SLA Process - PTT 247';
+          } else if (processTypeLower.includes('ptt eban') || processTypeLower.includes('ebanking') || processTypeLower.includes('ptt') || processTypeLower.includes('e-banking')) {
+              detectedLabel = 'SLA Process PTT Ebanking';
           } else if (processTypeLower.includes('tuyen') || processTypeLower.includes('truyen')) {
               if (processTypeLower.includes('1')) detectedLabel = 'SLA Process - 247 Tuyến 1';
               else if (processTypeLower.includes('2')) detectedLabel = 'SLA Process - 247 Tuyến 2';
@@ -201,7 +206,9 @@ export default function BatchSlaCheckTab() {
              detectedLabel === 'SLA Process - RCC' ||
              detectedLabel === 'SLA Process - TTThe Đối soát' ||
              detectedLabel === 'SLA Process - TTT Phát hành' ||
-             detectedLabel === 'SLA Process - TTT Cấu hình'
+             detectedLabel === 'SLA Process - TTT Cấu hình' ||
+             detectedLabel === 'SLA Process PTT Ebanking' ||
+             detectedLabel === 'SLA Process - PTT 247'
           ) {
              vpbStartStr = String(getVal(row, 'Ngày Bắt Đầu  ', 'Ngày bắt đầu', 'Ngày bắt đầu tính SLA', 'Ngay bat dau', 'ngaybatdau') || '');
           } else {
@@ -228,7 +235,7 @@ export default function BatchSlaCheckTab() {
              detectedLabel = 'SLA E2E';
          } else if (processTypeLower.includes('tuyen 1') || processTypeLower.includes('truyen 1') || processTypeLower.includes('t1')) {
              detectedLabel = 'SLA Process - 247 Tuyến 1';
-         } else if (processTypeLower.includes('tuyen 2') || processTypeLower.includes('truyen 2') || processTypeLower.includes('t2')) {
+          } else if (processTypeLower.includes('tuyen 2') || processTypeLower.includes('truyen 2') || processTypeLower.includes('t2')) {
              detectedLabel = 'SLA Process - 247 Tuyến 2';
          } else if (processTypeLower.includes('tra soat')) {
              detectedLabel = 'SLA Process - TTT Tra soát';
@@ -240,6 +247,10 @@ export default function BatchSlaCheckTab() {
              detectedLabel = 'SLA Process - TTThe Đối soát';
          } else if (processTypeLower.includes('cau hinh')) {
              detectedLabel = 'SLA Process - TTT Cấu hình';
+         } else if (processTypeLower.includes('247 ptt') || processTypeLower.includes('ptt 247') || (processTypeLower.includes('ptt') && processTypeLower.includes('247'))) {
+             detectedLabel = 'SLA Process - PTT 247';
+         } else if (processTypeLower.includes('ptt eban') || processTypeLower.includes('ebanking') || processTypeLower.includes('ptt') || processTypeLower.includes('e-banking')) {
+             detectedLabel = 'SLA Process PTT Ebanking';
          } else if (processTypeLower.includes('tuyen') || processTypeLower.includes('truyen')) {
              if (processTypeLower.includes('1')) detectedLabel = 'SLA Process - 247 Tuyến 1';
              else if (processTypeLower.includes('2')) detectedLabel = 'SLA Process - 247 Tuyến 2';
@@ -249,7 +260,7 @@ export default function BatchSlaCheckTab() {
              row,
              rowIndex: idx,
              reference: ref,
-             expectedTargetDate: null,
+             expectedTargetDate: null, targetResponseMinutes: getVal(row, 'Phản hồi mục tiêu(Phút)', 'Phản hồi mục tiêu (Phút)', 'Phan hoi muc tieu', 'Phản hồi mục tiêu', 'target response') ? String(getVal(row, 'Phản hồi mục tiêu(Phút)', 'Phản hồi mục tiêu (Phút)', 'Phan hoi muc tieu', 'Phản hồi mục tiêu', 'target response')).trim() : undefined,
              actualTargetDate: originalTargetDate || null,
              detectedProcessType: detectedLabel,
              originalProcessType: String(originalProcessTypeVal),
@@ -275,17 +286,22 @@ export default function BatchSlaCheckTab() {
          }
 
          try {
+             const isSlaTypeNull = !slaTypeStr || String(slaTypeStr).trim() === '' || String(slaTypeStr).toLowerCase().trim() === 'null' || String(slaTypeStr).toLowerCase().trim() === 'undefined';
              let scope: ProcessingScope = 'Xử lý yêu cầu toàn phần';
              
-             // Deduce scope from SLA Type column
-             const t = String(slaTypeStr || '').toLowerCase()
-                 .normalize('NFD')
-                 .replace(/[\u0300-\u036f]/g, '')
-                 .replace(/[đĐ]/g, 'd');
+             if (detectedLabel === 'SLA Process - 247 Tuyến 1' && isSlaTypeNull) {
+                 scope = 'Xử lý ngoài phạm vi';
+             } else {
+                 // Deduce scope from SLA Type column
+                 const t = String(slaTypeStr || '').toLowerCase()
+                     .normalize('NFD')
+                     .replace(/[\u0300-\u036f]/g, '')
+                     .replace(/[đĐ]/g, 'd');
 
-             if (t.includes('1 phan') || t.includes('mot phan')) scope = 'Xử lý yêu cầu 1 phần';
-             else if (t.includes('ngoai pham vi')) scope = 'Xử lý ngoài phạm vi';
-             else if (t.includes('ngoai le')) scope = 'Yêu cầu ngoại lệ';
+                 if (t.includes('1 phan') || t.includes('mot phan')) scope = 'Xử lý yêu cầu 1 phần';
+                 else if (t.includes('ngoai pham vi')) scope = 'Xử lý ngoài phạm vi';
+                 else if (t.includes('ngoai le')) scope = 'Yêu cầu ngoại lệ';
+             }
 
              const calc = calculateTargetDate({
                 reference: ref,
@@ -372,15 +388,15 @@ export default function BatchSlaCheckTab() {
      if (results.length === 0) return;
      
      const exportData = results.map(r => {
-         const newRow = { ...r.row };
-         newRow['[Kết quả] Kiểm tra'] = r.isValid ? (r.isCorrect ? 'ĐÚNG' : 'SAI') : 'LỖI';
-         if (!r.isCorrect && r.isValid) {
-             newRow['[Kết quả] Ngày targetdate cần update'] = r.updateTargetDateStr;
-         } else {
-             newRow['[Kết quả] Ngày targetdate cần update'] = '';
-         }
-         newRow['[Kết quả] Giải nghĩa'] = r.isValid ? r.shortExplanation : (r.errorMessage || '');
-         return newRow;
+          const newRow = { ...r.row };
+          newRow['[Kết quả] Kiểm tra'] = r.isValid ? (r.isCorrect ? 'ĐÚNG' : 'SAI') : 'LỖI';
+          if (!r.isCorrect && r.isValid) {
+              newRow['[Kết quả] Ngày targetdate cần update'] = r.updateTargetDateStr;
+          } else {
+              newRow['[Kết quả] Ngày targetdate cần update'] = '';
+          }
+          newRow['[Kết quả] Giải nghĩa'] = r.isValid ? r.shortExplanation : (r.errorMessage || '');
+          return newRow;
      });
 
      const wb = XLSX.utils.book_new();
@@ -417,6 +433,8 @@ export default function BatchSlaCheckTab() {
      
      XLSX.writeFile(wb, `SLA_Kết_Quả_Check_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);
   };
+
+  const hasTargetResponse = results.some(r => r.targetResponseMinutes !== undefined && r.targetResponseMinutes !== '');
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -459,7 +477,7 @@ export default function BatchSlaCheckTab() {
                 <div className="flex flex-col items-center justify-center text-green-600">
                    <CheckCircle className="w-10 h-10 mb-3" />
                    <span className="font-semibold text-neutral-800">Đã xử lý: {file.name}</span>
-                   <span className="text-sm text-neutral-500 mt-1 mt-2">Nhấp để tải lên file khác</span>
+                   <span className="text-sm text-neutral-500 mt-2">Nhấp để tải lên file khác</span>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center text-neutral-500">
@@ -614,7 +632,10 @@ export default function BatchSlaCheckTab() {
                              <th className="px-4 py-3 font-semibold w-16 text-center">Row</th>
                              <th className="px-4 py-3 font-semibold">Mã yêu cầu</th>
                              <th className="px-4 py-3 font-semibold">Cột mốc</th>
-                             <th className="px-4 py-3 font-semibold">Target Date (File)</th>
+                             {hasTargetResponse && (
+                                 <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">Phản hồi mục tiêu</th>
+                              )}
+                              <th className="px-4 py-3 font-semibold">Target Date (File)</th>
                              <th className="px-4 py-3 font-semibold">Target Date (Update)</th>
                              <th className="px-4 py-3 font-semibold text-center">Kết Quả</th>
                              <th className="px-4 py-3 font-semibold">Giải nghĩa</th>
@@ -632,9 +653,20 @@ export default function BatchSlaCheckTab() {
                                    </div>
                                 </td>
 
-                                <td className="px-4 py-3 text-neutral-600">
-                                   {r.actualTargetDate ? format(r.actualTargetDate, 'HH:mm, dd/MM/yyyy') : '-'}
-                                </td>
+                                {hasTargetResponse ? (
+                                   <>
+                                      <td className="px-4 py-3 text-neutral-600 font-mono text-center">
+                                         {r.targetResponseMinutes !== undefined && r.targetResponseMinutes !== "" ? r.targetResponseMinutes : "-"}
+                                      </td>
+                                      <td className="px-4 py-3 text-neutral-600">
+                                         {r.actualTargetDate ? format(r.actualTargetDate, 'HH:mm, dd/MM/yyyy') : '-'}
+                                      </td>
+                                   </>
+                                ) : (
+                                   <td className="px-4 py-3 text-neutral-600">
+                                      {r.actualTargetDate ? format(r.actualTargetDate, 'HH:mm, dd/MM/yyyy') : '-'}
+                                   </td>
+                                )}
                                 <td className="px-4 py-3 font-medium">
                                    {!r.isValid ? '-' : r.isCorrect ? '-' : (
                                       <span className="text-blue-600">{r.updateTargetDateStr}</span>
@@ -684,44 +716,52 @@ export default function BatchSlaCheckTab() {
                  </button>
               </div>
               
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                 <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                       <div className="text-[10px] text-blue-600 font-bold uppercase tracking-wider mb-1">Cột mốc nhận diện</div>
-                       <div className="font-semibold text-neutral-800 text-sm truncate">{selectedResult.detectedProcessType}</div>
-                    </div>
-                    <div className="bg-neutral-50 p-3 rounded-lg border border-neutral-100">
-                       <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Kết quả</div>
-                       <div className={clsx(
-                          "font-bold text-sm",
-                          selectedResult.isCorrect ? "text-green-600" : "text-red-600"
-                       )}>
-                          {selectedResult.shortExplanation}
-                       </div>
-                    </div>
-                 </div>
+               <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  <div className={clsx("grid gap-4 mb-6", selectedResult.targetResponseMinutes !== undefined && selectedResult.targetResponseMinutes !== '' ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2")}>
+                     <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                        <div className="text-[10px] text-blue-600 font-bold uppercase tracking-wider mb-1">Cột mốc nhận diện</div>
+                        <div className="font-semibold text-neutral-800 text-sm truncate">{selectedResult.detectedProcessType}</div>
+                     </div>
+                     {selectedResult.targetResponseMinutes !== undefined && selectedResult.targetResponseMinutes !== '' && (
+                        <div className="bg-purple-50 p-3 rounded-lg border border-purple-100 animate-in zoom-in-95 duration-200">
+                           <div className="text-[10px] text-purple-600 font-bold uppercase tracking-wider mb-1">Phản hồi mục tiêu (Phút)</div>
+                           <div className="font-semibold text-neutral-800 text-sm">{selectedResult.targetResponseMinutes}</div>
+                        </div>
+                     )}
+                     <div className="hidden">
+                     </div>
+                     <div className="bg-neutral-50 p-3 rounded-lg border border-neutral-100">
+                        <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Kết quả</div>
+                        <div className={clsx(
+                           "font-bold text-sm",
+                           selectedResult.isCorrect ? "text-green-600" : "text-red-600"
+                        )}>
+                           {selectedResult.shortExplanation}
+                        </div>
+                     </div>
+                  </div>
 
-                 <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-widest px-1">Log xử lý chi tiết</h4>
-                    {selectedResult.explanationSteps?.map((step, i) => (
-                       <div key={i} className={clsx(
-                          "flex gap-3 text-sm p-2 rounded-lg border",
-                          step.isHighlight ? "bg-blue-50 border-blue-100" : "bg-white border-neutral-100"
-                       )}>
-                          <span className="text-base">{step.icon}</span>
-                          <span className={clsx(
-                             "flex-1",
-                             step.isHighlight ? "font-semibold text-blue-800" : "text-neutral-600"
-                          )}>{step.text}</span>
-                       </div>
-                    ))}
-                    {(!selectedResult.explanationSteps || selectedResult.explanationSteps.length === 0) && (
-                       <div className="text-center py-8 text-neutral-400 text-sm italic">
-                          {selectedResult.errorMessage || 'Không có log chi tiết cho dòng này.'}
-                       </div>
-                    )}
-                 </div>
-              </div>
+                  <div className="space-y-3">
+                     <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-widest px-1">Log xử lý chi tiết</h4>
+                     {selectedResult.explanationSteps?.map((step, i) => (
+                        <div key={i} className={clsx(
+                           "flex gap-3 text-sm p-2 rounded-lg border",
+                           step.isHighlight ? "bg-blue-50 border-blue-100" : "bg-white border-neutral-100"
+                        )}>
+                           <span className="text-base">{step.icon}</span>
+                           <span className={clsx(
+                              "flex-1",
+                              step.isHighlight ? "font-semibold text-blue-800" : "text-neutral-600"
+                           )}>{step.text}</span>
+                        </div>
+                     ))}
+                     {(!selectedResult.explanationSteps || selectedResult.explanationSteps.length === 0) && (
+                        <div className="text-center py-8 text-neutral-400 text-sm italic">
+                           {selectedResult.errorMessage || 'Không có log chi tiết cho dòng này.'}
+                        </div>
+                     )}
+                  </div>
+               </div>
               
               <div className="p-4 bg-neutral-50 border-t flex justify-end">
                  <button 

@@ -140,7 +140,7 @@ export const SLA_E2E_RULES: SLARule[] = [
   },
   {
     name: "Gửi form tra soát không xác nhận giao dịch",
-    slas: ["2 giờ", "2 giờ", 0.5, 0.5, 0.5, 2, 2],
+    slas: ["02 giờ làm việc", "02 giờ làm việc", "04 giờ làm việc", "04 giờ làm việc", "04 giờ làm việc", 2, 2],
     conditions: { subCategory: ["Gửi form tra soát không xác nhận giao dịch"] }
   },
   {
@@ -279,12 +279,12 @@ export const SLA_E2E_RULES: SLARule[] = [
     conditions: { subCategory: ["Thay đổi địa chỉ nhận thẻ"] }
   },
   {
-    name: "Thay đổi nội dung chuyển khoản",
+    name: "Tra soát GD ck nhanh 24/7 NAPAS – Điều chỉnh nội dung",
     slas: [2, 2, 3, 3, 3, 3, 3],
     conditions: { subCategory: ["Tra soát GD ck nhanh 24/7 NAPAS – Điều chỉnh nội dung"] }
   },
   {
-    name: "Tra soát - CDM",
+    name: "Tra soát GD nộp tiền tại CDM",
     slas: [2, 2, 2, 2, 3, 3, 3],
     conditions: { subCategory: ["Tra soát GD nộp tiền tại CDM"] }
   },
@@ -294,9 +294,57 @@ export const SLA_E2E_RULES: SLARule[] = [
     conditions: { subCategory: ["Tra soát chuyển khoản ACH"] }
   },
   {
+    name: "Tra soát chuyển khoản nội bộ- PTT",
+    slas: [2, 2, 2, 2, 2, 2, 2],
+    conditions: {
+      subCategory: [
+        "Tra soát chuyển khoản nội bộ- PTT",
+        "Tra soát chuyển khoản nội bộ - PTT",
+        "Tra soát chuyển khoản nội bộ-PTT"
+      ]
+    }
+  },
+  {
+    name: "Tra soát chuyển khoản nội bộ- PTT - NEO",
+    slas: [1, 1, 1, 1, 1, 1, 1],
+    conditions: {
+      subCategory: [
+        "Tra soát chuyển khoản nội bộ- PTT - NEO",
+        "Tra soát chuyển khoản nội bộ - PTT - NEO",
+        "Tra soát chuyển khoản nội bộ-PTT-NEO",
+        "Tra soát chuyển khoản nội bộ - PTT-NEO",
+        "Tra soát chuyển khoản nội bộ- PTT- NEO"
+      ]
+    }
+  },
+  {
+    name: "Tra soát chuyển khoản nội bộ - CRU",
+    slas: [5, 5, 5, 5, 5, 5, 5],
+    conditions: {
+      subCategory: [
+        "Tra soát chuyển khoản nội bộ - CRU",
+        "Tra soát chuyển khoản nội bộ- CRU",
+        "Tra soát chuyển khoản nội bộ-CRU"
+      ]
+    }
+  },
+  {
     name: "Tra soát chuyển khoản nội bộ",
     slas: [5, 5, 5, 5, 5, 5, 5],
     conditions: { subCategory: ["Tra soát chuyển khoản nội bộ"] }
+  },
+  {
+    name: "Tra soát giao dịch chuyển khoản liên ngân hàng- PTT - NEO",
+    slas: [1, 1, 1, 1, 1, 1, 1],
+    conditions: {
+      subCategory: [
+        "Tra soát giao dịch chuyển khoản liên ngân hàng- PTT - NEO",
+        "Tra soát giao dịch chuyển khoản liên ngân hàng - PTT - NEO",
+        "Tra soát giao dịch chuyển khoản liên ngân hàng-PTT-NEO",
+        "Tra soát giao dịch chuyển khoản liên ngân hàng - PTT-NEO",
+        "Tra soát giao dịch chuyển khoản liên ngân hàng- PTT- NEO"
+      ]
+    }
   },
   {
     name: "Tra soát giao dịch chuyển khoản liên ngân hàng",
@@ -310,8 +358,61 @@ export const SLA_E2E_RULES: SLARule[] = [
   },
   {
     name: "Tra soát I2B - Billing/ TOP UP - PTT",
-    slas: [9, 9, 9, 9, 9, 9, 9],
-    conditions: { subCategory: ["Tra soát I2B - Billing/ TOP UP - PTT"] }
+    slas: [3, 3, 3, 3, 3, 3, 3],
+    conditions: {
+      subCategory: [
+        "Tra soát I2B - Billing/ TOP UP - PTT",
+        "Tra soát I2B - Billing/ TOP UP- PTT",
+        "Tra soát I2B - Billing/ TOP UP-PTT",
+        "Tra soát I2B-Billing/TOP UP-PTT",
+        "Tra soát I2B - Billing / TOP UP - PTT"
+      ]
+    }
+  },
+  {
+    name: "Tra soát I2B - Billing/ TOP UP - PTT - NEO",
+    slas: [2, 2, 2, 2, 2, 2, 2],
+    conditions: {
+      subCategory: [
+        "Tra soát I2B - Billing/ TOP UP - PTT - NEO",
+        "Tra soát I2B - Billing/ TOP UP- PTT - NEO",
+        "Tra soát I2B-Billing/TOP UP-PTT-NEO",
+        "Tra soát I2B - Billing/ TOP UP-PTT-NEO",
+        "Tra soát I2B - Billing / TOP UP - PTT - NEO"
+      ]
+    }
+  },
+  {
+    name: "Tra soát I2B - Billing/ TOP UP - DST",
+    slas: [3, 3, 3, 3, 3, 3, 3],
+    conditions: {
+      subCategory: [
+        "Tra soát I2B - Billing/ TOP UP - DST",
+        "Tra soát I2B - Billing/ TOP UP- DST",
+        "Tra soát I2B - Billing/ TOP UP-DST",
+        "Tra soát I2B-Billing/TOP UP-DST",
+        "Tra soát I2B - Billing / TOP UP - DST",
+        "Tra soát I2B - Billing/ TOP UP-DST"
+      ]
+    }
+  },
+  {
+    name: "Tra soát I2B - Billing/ TOP UP - DST-NEO",
+    slas: [2, 2, 2, 2, 2, 2, 2],
+    conditions: {
+      subCategory: [
+        "Tra soát I2B - Billing/ TOP UP - DST-NEO",
+        "Tra soát I2B - Billing/ TOP UP- DST-NEO",
+        "Tra soát I2B-Billing/TOP UP-DST-NEO",
+        "Tra soát I2B - Billing/ TOP UP-DST-NEO",
+        "Tra soát I2B - Billing / TOP UP - DST-NEO",
+        "Tra soát I2B - Billing/ TOP UP - DST - NEO",
+        "Tra soát I2B - Billing/ TOP UP- DST - NEO",
+        "Tra soát I2B - Billing / TOP UP - DST - NEO",
+        "Tra soát I2B - Billing/ TOP UP-DST - NEO",
+        "Tra soát I2B - Billing / TOP UP - DST- NEO"
+      ]
+    }
   },
   {
     name: "Tra soát I2B - chuyển khoản nội bộ sang thẻ TD",
@@ -394,6 +495,11 @@ export const SLA_E2E_RULES: SLARule[] = [
     conditions: { subCategory: ["Tra soát thẻ quốc tế - trục lợi Facebook"] }
   },
   {
+    name: "Tra soát thẻ VPB tại ĐVCNT Ecom/POS VPBank",
+    slas: [47, 47, 47, 47, 47, 47, 47],
+    conditions: { subCategory: ["Tra soát thẻ VPB tại ĐVCNT Ecom/POS VPBank"] }
+  },
+  {
     name: "Trao đổi khoản vay",
     slas: [1, 1, 1, 1, 1, 2, 2],
     conditions: { subCategory: ["Trao đổi khoản vay"] }
@@ -443,7 +549,7 @@ export const SLA_E2E_RULES: SLARule[] = [
   {
     name: "Các case có source là Email",
     slas: [1, 1, 1, 1, 1, 2, 2],
-    conditions: { source: ["Email", "email"] }
+    conditions: { source: ["Email", "email", "e-mail", "gmail", "mail"] }
   },
   {
     name: "KH có nhu cầu đóng thẻ",

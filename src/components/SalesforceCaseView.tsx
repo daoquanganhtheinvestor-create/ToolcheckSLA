@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
-import { calculateTargetDate, ProcessingScope, CalculationResult, PROCESS_TYPES } from '../lib/sla';
+import { calculateTargetDate, ProcessingScope, CalculationResult, PROCESS_TYPES, PROCESS_WITH_ASSIGN_DATE } from '../lib/sla';
 import { UNIT_OPTIONS } from '../lib/unitOptions';
 import { APT_CODE_OPTIONS } from '../lib/aptCodeOptions';
 import { TYPE_CATEGORY_MAPPING } from '../lib/categoryData';
@@ -319,7 +319,7 @@ export function SalesforceCaseView() {
                         ]} 
                       />
                       <InputField label="Ngày tạo (Created Date)" value={createdDateStr} onChange={setCreatedDateStr} />
-                      {['SLA Process - 247 Tuyến 2', 'SLA Process - RCC', 'SLA Process - TTT Phát hành', 'SLA Process - TTThe Đối soát', 'SLA Process - TTT Cấu hình', 'SLA Process - TTT Tra soát'].includes(processType) && (
+                      {PROCESS_WITH_ASSIGN_DATE.includes(processType) && (
                         <InputField label="Ngày Assign" value={assignDateStr} onChange={setAssignDateStr} />
                       )}
                       

@@ -13,7 +13,9 @@ const ASSIGN_KEYWORDS: Record<string, string[]> = {
   'SLA Process - TTT Phát hành': ['Service_TTThe Phat hanh'],
   'SLA Process - TTThe Đối soát': ['Service_TTThe Doi soat'],
   'SLA Process - TTT Cấu hình': ['Service_TTThe Cau Hinh'],
-  'SLA Process - TTT Tra soát': ['Service_TTThe Tra soat']
+  'SLA Process - TTT Tra soát': ['Service_TTThe Tra soat'],
+  'SLA Process PTT Ebanking': ['Service_PTT Ebanking', 'PTT Ebanking'],
+  'SLA Process - PTT 247': ['Service_PTT 247', 'PTT 247']
 };
 
 interface ExtractedData {
