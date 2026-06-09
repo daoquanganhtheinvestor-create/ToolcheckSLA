@@ -316,7 +316,7 @@ Trình bày báo cáo về Patterns (Quy luật sai) và Root Cause (Nguyên nh�
 
     try {
       const result = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3.5-flash',
         contents: [{ role: 'user', parts: [{ text: prompt }] }]
       });
       const text = result.text;
@@ -350,7 +350,7 @@ Dùng Markdown để trình bày.`;
       }));
 
       const result = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3.5-flash',
         contents: [
           { role: 'user', parts: [{ text: systemPrompt }] },
           ...history

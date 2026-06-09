@@ -22,7 +22,7 @@ export default function App() {
                <Calculator className="w-8 h-8" />
              </div>
              <div>
-               <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">SLA Logic Engine</h1>
+               <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">máy dò SLA - by Daosweet2k</h1>
                <p className="text-neutral-500">Hệ thống tính toán Target Date / Service Level Agreement</p>
              </div>
           </div>
