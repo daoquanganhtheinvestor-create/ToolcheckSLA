@@ -285,41 +285,52 @@ export default function SlaAiAnalysisTab() {
   const runAiAnalysis = async (failures: FailedCase[], total: number) => {
     const contextData = getAnalysisContext(failures, total);
     
-    const prompt = `Bạn là chuyên gia phân tích dữ liệu SLA ngân hàng. 
-Dưới đây là dữ liệu về các case bị SAI Target Date (có nhãn "Sai" trong cột kết quả kiểm tra).
-Tổng số case trong file: ${total}. Số case sai: ${failures.length} (${((failures.length/total)*100).toFixed(1)}%).
+    const prompt = `DANH NGHĨA VÀ VAI TRÒ CHUYÊN GIA:
+Bạn là "MÁY DÒ SLA - Chuyên gia cao cấp về Service SLA & Chẩn đoán Bug Logic Hệ thống (SLA Auditor Specialist)" do nhà phát triển Daosweet2k sáng tạo.
+Nhiệm vụ tối cao của bạn là săn lùng và phân tích lỗi logic, tìm ra điểm bất nhất (bug/mismatch) giữa kết quả chuẩn mong đợi (trong file dữ liệu thực tế) và cách tính toán hiện tại của hệ thống (trong file code src/lib/sla.ts, src/lib/slaRules.ts).
 
-LƯU Ý CỰC KỲ QUAN TRỌNG VỀ ĐỊNH DẠNG NGÀY THÁNG (QUYẾT ĐỊNH ĐỘ CHÍNH XÁC):
-- Tất cả các mốc ngày tháng trong dữ liệu mẫu (sample), lịch sử, và thống kê hoàn toàn tuân theo định dạng Việt Nam: DD/MM/YYYY (Ngày trước, Tháng sau).
-- Ví dụ cụ thể:
-  + "08/06/2026" là ngày mùng 8 tháng 6 năm 2026 (Ngày 8, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC đọc thành ngày mùng 6 tháng 8.
-  + "09/06/2026" là ngày mùng 9 tháng 6 năm 2026 (Ngày 9, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC đọc thành ngày mùng 6 tháng 9.
-- Luôn kiểm tra kỹ thứ tự ngày/tháng trước khi đưa ra nhận định về khoảng cách thời gian hoặc nguyên nhân chậm trễ. Tuyệt đối tránh hiểu nhầm theo định dạng Mỹ MM/DD/YYYY!
+DỮ LIỆU LOGIC KIỂM TRA ĐẦU VÀO:
+- Tổng số case đã kiểm định (audit): ${total}.
+- Số lượng case bị phát hiện tính toán lệch Target Date: ${failures.length} ca (${((failures.length/total)*100).toFixed(1)}%).
 
-Logic chuẩn:
-- Giờ làm việc: 8:30 - 12:00 và 13:30 - 18:00.
-- Ngày nghỉ/lễ không tính (trừ khi SLA là E2E).
-- RCC: AF/Private = 5h, Khác = 10h.
-- TTT Cấu hình: AF/Private = 1 ngày, Khác = 2 ngày.
-- TTT Phát hành (chưa nhận pin/thẻ...): AF/Private = 3 ngày, Khác = 4 ngày.
-- TTThe Đối soát: Tra soát DST = 3 ngày, Tra soát DST-NEO = 2 ngày (áp dụng mọi phân khúc). Các sub-category 6h/14h còn lại: AF/Private = 6h hoặc 14h tùy subcategory, Khác = 14h làm việc.
-- PTT 247: Điều chỉnh nội dung = 2 ngày, Hỗ trợ nhờ thu = 2 ngày, Truy vấn trạng thái = 3 ngày, YC xác nhận báo có = 4 ngày.
-- SLA E2E & 247 Tuyến 2: Tra soát chuyển khoản nội bộ - CRU = 5 ngày làm việc.
-- 247 Tuyến 1: Nếu SLA Type/Scope = null hoặc trống hoặc "null", coi là "Xử lý ngoài phạm vi" (AF/Private = 2 giờ làm việc, Khác/Mass = 4 giờ làm việc).
+LƯU Ý CỰC KỲ QUAN TRỌNG VỀ ĐỊNH DẠNG NGÀY THÁNG (QUYẾT ĐỊNH ĐỘ CHÍNH XÁC KHI SĂN BUG):
+- Toàn bộ thời gian hiển thị trong dữ liệu mẫu (sample), lịch sử, và thống kê hoàn toàn tuân theo định dạng Việt Nam: DD/MM/YYYY (Ngày trước, Tháng sau).
+- Ví dụ cụ thể: 
+  + "08/06/2026" là ngày mùng 8 tháng 6 năm 2026 (Ngày 8, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC nhầm lẫn hoặc đọc thành ngày mùng 6 tháng 8.
+  + "09/06/2026" là ngày mùng 9 tháng 6 năm 2026 (Ngày 9, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC nhầm lẫn hoặc đọc thành ngày mùng 6 tháng 9.
+- Luôn kiểm tra kỹ thứ tự ngày/tháng trước khi đưa ra nhận định về lệch ngày hoặc nguyên nhân chậm trễ. Tuyệt đối tránh hiểu nhầm theo định dạng Mỹ MM/DD/YYYY!
 
-Thống kê các case sai:
-1. Theo Quy trình: ${JSON.stringify(contextData.stats.byProcess)}
-2. Theo Phân khúc: ${JSON.stringify(contextData.stats.bySegment)}
-3. Theo Khung giờ tạo: ${JSON.stringify(contextData.stats.byHour)}
-4. Theo Thứ trong tuần: ${JSON.stringify(contextData.stats.byDay)}
-5. Tạo vào ngày lễ/cuối tuần: ${JSON.stringify(contextData.stats.byHoliday)}
-6. Mẫu Sub-category: ${JSON.stringify(Object.entries(contextData.stats.bySubCategory).sort((a: any, b: any) => b[1] - a[1]).slice(0, 15))}
+TÓM TẮT THUẬT TOÁN LOGIC CỐT LÕI (CHUYÊN GIA BIẾT ĐỂ TRA CỨU CODE):
+1. Giờ làm việc hành chính: 8:30 - 12:00 và 13:30 - 18:00 (làm việc 8 tiếng/ngày). Trừ cuối tuần & Lễ Tết (VN_HOLIDAYS_DEFAULT trong sla.ts).
+2. Phân loại theo Process Type:
+   - SLA E2E: Dựa trên SLA_E2E_RULES trong slaRules.ts. Không loại trừ ngày nghỉ lễ trừ khi cấu hình đặc biệt.
+   - SLA Process - 247 Tuyến 1: Nếu Scope = "Xử lý ngoài phạm vi" (AF/Private = 2 giờ, Khác = 4 giờ làm việc). Các scope khác đối chiếu SLA_MATRIX.
+   - SLA Process - 247 Tuyến 2: Có subcategory đặc biệt: "Tra soát chuyển khoản nội bộ - CRU" là 5 ngày làm việc.
+   - SLA Process - TTT Tra soát: Giá trị ngày làm việc lấy từ TTT_TRA_SOAT_MATRIX (ví dụ Tra soát CDM = 2 ngày, Thẻ nội địa POS = 11 ngày, ...).
+   - SLA Process - RCC: AF/Private = 5h làm việc, Khác = 10h làm việc.
+   - SLA Process - TTT Phát hành: AF/Private = 3 ngày làm việc, Khác = 4 ngày làm việc.
+   - SLA Process - TTThe Đối soát: Tra soát DST = 3 ngày, Tra soát DST-NEO = 2 ngày. Các sub-category khác quy đổi 14h làm việc (khách hàng thường/Mass) hoặc 6h/14h (khách hàng VIP).
+   - SLA Process - TTT Cấu hình: AF/Private = 1 ngày làm việc, Khác = 2 ngày làm việc.
+   - SLA Process PTT Ebanking: 'Tra soát chuyển khoản nội bộ- PTT' và 'Tra soát chuyển khoản nội bộ- PTT - NEO' = 1 ngày làm việc; 'Tra soát I2B - Billing/ TOP UP - PTT' và 'Tra soát I2B - Billing/ TOP UP - PTT - NEO' = 2 ngày làm việc.
+   - SLA Process - PTT 247: Điều chỉnh nội dung = 2 ngày, Hỗ trợ nhờ thu = 2 ngày, Truy vấn trạng thái = 3 ngày, YC xác nhận báo có = 4 ngày làm việc.
 
-Dữ liệu mẫu 30 case:
+THỐNG KÊ CHI TIẾT CÁC CASE BỊ LỆCH TARGET DATE:
+1. Phân bố theo Quy trình: ${JSON.stringify(contextData.stats.byProcess)}
+2. Phân bố theo Phân khúc (Segment): ${JSON.stringify(contextData.stats.bySegment)}
+3. Khung giờ tạo case bị lệch: ${JSON.stringify(contextData.stats.byHour)}
+4. Ngày trong tuần bị lệch: ${JSON.stringify(contextData.stats.byDay)}
+5. Tạo vào ngày nghỉ/ngày lễ: ${JSON.stringify(contextData.stats.byHoliday)}
+6. Top Sub-category có nhiều sai lệch nhất: ${JSON.stringify(Object.entries(contextData.stats.bySubCategory).sort((a: any, b: any) => b[1] - a[1]).slice(0, 15))}
+
+MẪU CHI TIẾT 30 CASE TRỰC QUAN ĐỂ CHẨN ĐOÁN BUG:
 ${JSON.stringify(contextData.sample, null, 2)}
 
-NHIỆM VỤ:
-Trình bày báo cáo về Patterns (Quy luật sai) và Root Cause (Nguyên nhân gốc). Tập trung vào việc tìm ra "Why".`;
+NHIỆM VỤ THỰC THI (TRÌNH BÀY BẰNG CÁC ĐẦU MỤC CHUYÊN NGHIỆP):
+1. **CHẨN ĐOÁN PATTERNS KHÁI QUÁT**: Phân tích xem lỗi sai tập trung ở đâu (quy trình nào, phân khúc nào, mốc thời gian đặc biệt nào như ngày nghỉ Tết/Lễ, cuối tuần, ngoài giờ làm việc).
+2. **KHOANH VÙNG BUG CODE & BẤT NHẤT LOGIC**: Tìm nguyên nhân tại sao Target Date thực tế lại khác Target Date mà hệ thống tính ra (Expected vs Actual). Hãy chẩn đoán kỹ xem:
+   - Có phải do lệch định dạng ngày mùng 8/6 hay 9/6 hay do thuật toán cộng giờ làm việc?
+   - Có phải do lệch tên Sub-category (khoảng trắng, ký tự đặc biệt, viết hoa thường, dấu gạch ngang) giữa dữ liệu thực và cấu hình trong file \`sla.ts\`/\`slaRules.ts\`?
+3. **ĐỀ XUẤT CÁCH VÁ CODE (BUG WORKAROUNDS)**: Viết đề xuất sửa mã nguồn TypeScript cụ thể trong file \`src/lib/sla.ts\` hoặc \`src/lib/slaRules.ts\` để vá triệt để lỗi này.`;
 
     try {
       const result = await ai.models.generateContent({
@@ -345,19 +356,30 @@ Trình bày báo cáo về Patterns (Quy luật sai) và Root Cause (Nguyên nh�
 
     try {
       const contextData = getAnalysisContext(failedCases, totalCases);
-      const systemPrompt = `Bạn là trợ lý AI phân tích SLA. Bạn đang thảo luận về bộ dữ liệu gồm ${totalCases} case, trong đó có ${failedCases.length} case bị sai Target Date.
+      const systemPrompt = `Bạn là "MÁY DÒ SLA - Chuyên gia cao cấp về Service SLA & Chẩn đoán Bug Logic Hệ thống (SLA Auditor Specialist)" do nhà phát triển Daosweet2k chế tạo.
+Vai trò của bạn là nhiệt tình thảo luận, hỗ trợ gỡ lỗi và phân tích các trường hợp sai lệch Target Date / SLA dựa trên dữ liệu hệ thống (code sla.ts và slaRules.ts).
 
-LƯU Ý QUAN TRỌNG VỀ ĐỊNH DẠNG NGÀY THÁNG (LUÔN PHẢI TUÂN THEO):
+LƯU Ý CỰC KỲ QUAN TRỌNG VỀ ĐỊNH DẠNG NGÀY THÁNG (LUÔN PHẢI TUÂN THEO ĐỂ TRÁNH TRẢ LỜI SAI):
 - Toàn bộ ngày tháng trong hệ thống và dữ liệu mẫu dưới đây đều là định dạng Việt Nam DD/MM/YYYY (Ngày trước, Tháng sau).
 - Ví dụ cụ thể:
   + "08/06/2026" là ngày mùng 8 tháng 6 năm 2026 (Ngày 8, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC đọc thành ngày mùng 6 tháng 8.
   + "09/06/2026" là ngày mùng 9 tháng 6 năm 2026 (Ngày 9, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC đọc thành ngày mùng 6 tháng 9.
 - Luôn trả lời người dùng dựa trên việc quy chiếu ngày/tháng chính xác theo định dạng Việt Nam này. Tuyệt đối không nhầm lẫn với định dạng Mỹ MM/DD/YYYY.
 
-Hãy thảo luận và trả lời câu hỏi của người dùng dựa trên thống kê và logic đã được cung cấp trước đó.
-Thống kê: ${JSON.stringify(contextData.stats)}
-Dữ liệu mẫu: ${JSON.stringify(contextData.sample)}
-Dùng Markdown để trình bày.`;
+PHẠM VI CHẨN ĐOÁN HIỆN TẠI:
+- Tổng số ca: ${totalCases} 
+- Số ca lệch Target Date: ${failedCases.length}
+
+THỐNG KÊ CHI TIẾT CỦA FILE:
+${JSON.stringify(contextData.stats)}
+
+DỮ LIỆU MẪU CỦA ĐỢT KIỂM TRA:
+${JSON.stringify(contextData.sample)}
+
+HƯỚNG DẪN TRẢ LỜI:
+- Luôn giữ vững phong thái của một chuyên gia cao cấp đầy kinh nghiệm về ngân hàng và hệ thống SLA quy mô lớn.
+- Phát hiện xem có sự khác biệt giữa ký tự chuỗi String hay không (khoảng trắng, dấu gạch ngang, tiếng Việt có dấu) khiến regex hoặc hàm string normalizer không bắt trúng.
+- Sử dụng Markdown có phân mục rõ ràng, sạch sẽ, chuyên nghiệp.`;
 
       const history = newMessages.map(m => ({
         role: m.role === 'user' ? 'user' as const : 'model' as const,
@@ -383,17 +405,17 @@ Dùng Markdown để trình bày.`;
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
-        <div className="p-8 bg-gradient-to-r from-blue-600 to-indigo-700 text-white relative">
+        <div className="p-8 bg-gradient-to-r from-emerald-600 to-teal-800 text-white relative">
           <div className="absolute top-0 right-0 p-8 opacity-10">
             <BrainCircuit className="w-32 h-32" />
           </div>
           <div className="relative z-10">
              <div className="flex items-center gap-3 mb-2">
                 <Sparkles className="w-6 h-6 text-yellow-300 animate-pulse" />
-                <h2 className="text-2xl font-bold">AI Root Cause Analysis</h2>
+                <h2 className="text-2xl font-bold">máy dò SLA - Chuyên gia SLA & Săn Bug Hệ thống</h2>
              </div>
-             <p className="text-blue-100 max-w-2xl">
-               Tìm quy luật sai sót từ hàng nghìn bản ghi và trao đổi trực tiếp với AI để tìm giải pháp.
+             <p className="text-emerald-100 max-w-2xl text-sm leading-relaxed">
+               Phòng thí nghiệm chẩn đoán SLA. Chuyên phân tích nguyên nhân gốc rễ và săn tìm bug logic hệ thống, giúp đảm bảo SLA khớp chuẩn 100%. Được phát triển bởi Daosweet2k.
              </p>
           </div>
         </div>
@@ -409,7 +431,7 @@ Dùng Markdown để trình bày.`;
                  Công cụ sẽ tự lọc các case có cột <code className="bg-neutral-200 px-1 rounded">[Kết quả] Kiểm tra</code> là <span className="text-red-600 font-bold">"Sai"</span>.
                </p>
                
-               <label className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 cursor-pointer shadow-sm transition-all active:scale-95">
+               <label className="px-6 py-2.5 bg-teal-600 text-white rounded-xl font-semibold hover:bg-teal-700 cursor-pointer shadow-sm transition-all active:scale-95">
                   Chọn File Phân Tích
                   <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleFileUpload} />
                </label>
@@ -435,9 +457,9 @@ Dùng Markdown để trình bày.`;
               </div>
 
               {isProcessing && (
-                <div className="flex flex-col items-center justify-center py-12 text-blue-600">
+                <div className="flex flex-col items-center justify-center py-12 text-teal-600">
                   <Loader2 className="w-12 h-12 animate-spin mb-4" />
-                  <p className="font-bold animate-pulse">AI đang phân tích các Patterns...</p>
+                  <p className="font-bold animate-pulse">AI Chuyên gia đang phân tích & săn lùng bug logic...</p>
                 </div>
               )}
 
@@ -460,14 +482,14 @@ Dùng Markdown để trình bày.`;
                         </span>
                      </div>
                      <div className="bg-white p-5 rounded-2xl border shadow-sm flex flex-col items-center justify-center text-center">
-                        <Search className="w-6 h-6 text-blue-500 mb-2" />
+                        <Search className="w-6 h-6 text-teal-500 mb-2" />
                         <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Case được phân tích</span>
                         <span className="text-3xl font-black text-neutral-800 mt-1">{failedCases.length}</span>
                      </div>
                      <div className="bg-white p-5 rounded-2xl border shadow-sm flex flex-col items-center justify-center text-center">
-                        <BrainCircuit className="w-6 h-6 text-indigo-500 mb-2" />
+                        <BrainCircuit className="w-6 h-6 text-emerald-500 mb-2" />
                         <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Tương tác AI</span>
-                        <span className="text-sm font-bold text-indigo-600 mt-1">Sẵn sàng phản hồi</span>
+                        <span className="text-sm font-bold text-emerald-600 mt-1">Sẵn sàng phản hồi</span>
                      </div>
                   </div>
 
@@ -475,10 +497,10 @@ Dùng Markdown để trình bày.`;
                   <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden flex flex-col h-[700px]">
                     <div className="p-4 bg-neutral-50 border-b border-neutral-200 flex items-center justify-between">
                        <div className="flex items-center gap-2">
-                          <BrainCircuit className="w-5 h-5 text-indigo-600" />
-                          <span className="font-bold text-neutral-800">Trao đổi với AI Phân Tích</span>
+                          <BrainCircuit className="w-5 h-5 text-teal-600 animate-pulse" />
+                          <span className="font-bold text-neutral-800">Hội ý với Chuyên gia SLA & Săn Bug Hệ thống</span>
                        </div>
-                       <span className="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded uppercase">Active Context</span>
+                       <span className="px-2 py-1 bg-teal-100 text-teal-700 text-[10px] font-bold rounded uppercase">Auditor Mode Active</span>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-neutral-50/30">
@@ -490,7 +512,7 @@ Dùng Markdown để trình bày.`;
                             <div className={clsx(
                               "max-w-[85%] rounded-2xl p-4 shadow-sm",
                               msg.role === 'user' 
-                                ? "bg-blue-600 text-white rounded-tr-none" 
+                                ? "bg-teal-600 text-white rounded-tr-none" 
                                 : "bg-white border text-neutral-800 rounded-tl-none"
                             )}>
                                <div className="prose prose-sm prose-neutral max-w-none prose-white">
@@ -502,8 +524,8 @@ Dùng Markdown để trình bày.`;
                        {isChatting && (
                          <div className="flex justify-start">
                             <div className="bg-white border rounded-2xl p-4 rounded-tl-none shadow-sm flex items-center gap-2">
-                               <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
-                               <span className="text-sm text-neutral-500 italic">AI đang trả lời dựa trên dữ liệu...</span>
+                               <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
+                               <span className="text-sm text-neutral-500 italic">Chuyên gia đang chẩn đoán & tra cứu code...</span>
                             </div>
                          </div>
                        )}
@@ -513,8 +535,8 @@ Dùng Markdown để trình bày.`;
                        <div className="flex gap-2">
                           <input 
                             type="text" 
-                            className="flex-1 px-4 py-3 bg-neutral-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all"
-                            placeholder="Hỏi AI về đặc điểm chung của các case sai..."
+                            className="flex-1 px-4 py-3 bg-neutral-100 border-none rounded-xl focus:ring-2 focus:ring-teal-500 outline-none text-sm transition-all"
+                            placeholder="Yêu cầu chuyên gia truy vết ca cụ thể, tìm bug code hoặc phân tích luật..."
                             value={userInput}
                             onChange={(e) => setUserInput(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
@@ -522,12 +544,12 @@ Dùng Markdown để trình bày.`;
                           <button 
                             onClick={handleSendMessage}
                             disabled={!userInput.trim() || isChatting}
-                            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
+                            className="bg-teal-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-teal-700 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
                           >
                             Gửi
                           </button>
                        </div>
-                       <p className="text-[10px] text-neutral-400 mt-2 text-center">AI sẽ trả lời dựa trên 30 case mẫu và thống kê tổng quát của file bạn cung cấp.</p>
+                       <p className="text-[10px] text-neutral-400 mt-2 text-center">Chuyên gia chẩn đoán dựa trên lịch thực tế của Việt Nam, mã nguồn hệ thống và phân tích dữ liệu đợt kiểm tra này.</p>
                     </div>
                   </div>
                 </div>
