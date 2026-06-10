@@ -289,6 +289,13 @@ export default function SlaAiAnalysisTab() {
 Dưới đây là dữ liệu về các case bị SAI Target Date (có nhãn "Sai" trong cột kết quả kiểm tra).
 Tổng số case trong file: ${total}. Số case sai: ${failures.length} (${((failures.length/total)*100).toFixed(1)}%).
 
+LƯU Ý CỰC KỲ QUAN TRỌNG VỀ ĐỊNH DẠNG NGÀY THÁNG (QUYẾT ĐỊNH ĐỘ CHÍNH XÁC):
+- Tất cả các mốc ngày tháng trong dữ liệu mẫu (sample), lịch sử, và thống kê hoàn toàn tuân theo định dạng Việt Nam: DD/MM/YYYY (Ngày trước, Tháng sau).
+- Ví dụ cụ thể:
+  + "08/06/2026" là ngày mùng 8 tháng 6 năm 2026 (Ngày 8, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC đọc thành ngày mùng 6 tháng 8.
+  + "09/06/2026" là ngày mùng 9 tháng 6 năm 2026 (Ngày 9, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC đọc thành ngày mùng 6 tháng 9.
+- Luôn kiểm tra kỹ thứ tự ngày/tháng trước khi đưa ra nhận định về khoảng cách thời gian hoặc nguyên nhân chậm trễ. Tuyệt đối tránh hiểu nhầm theo định dạng Mỹ MM/DD/YYYY!
+
 Logic chuẩn:
 - Giờ làm việc: 8:30 - 12:00 và 13:30 - 18:00.
 - Ngày nghỉ/lễ không tính (trừ khi SLA là E2E).
@@ -339,6 +346,14 @@ Trình bày báo cáo về Patterns (Quy luật sai) và Root Cause (Nguyên nh�
     try {
       const contextData = getAnalysisContext(failedCases, totalCases);
       const systemPrompt = `Bạn là trợ lý AI phân tích SLA. Bạn đang thảo luận về bộ dữ liệu gồm ${totalCases} case, trong đó có ${failedCases.length} case bị sai Target Date.
+
+LƯU Ý QUAN TRỌNG VỀ ĐỊNH DẠNG NGÀY THÁNG (LUÔN PHẢI TUÂN THEO):
+- Toàn bộ ngày tháng trong hệ thống và dữ liệu mẫu dưới đây đều là định dạng Việt Nam DD/MM/YYYY (Ngày trước, Tháng sau).
+- Ví dụ cụ thể:
+  + "08/06/2026" là ngày mùng 8 tháng 6 năm 2026 (Ngày 8, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC đọc thành ngày mùng 6 tháng 8.
+  + "09/06/2026" là ngày mùng 9 tháng 6 năm 2026 (Ngày 9, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC đọc thành ngày mùng 6 tháng 9.
+- Luôn trả lời người dùng dựa trên việc quy chiếu ngày/tháng chính xác theo định dạng Việt Nam này. Tuyệt đối không nhầm lẫn với định dạng Mỹ MM/DD/YYYY.
+
 Hãy thảo luận và trả lời câu hỏi của người dùng dựa trên thống kê và logic đã được cung cấp trước đó.
 Thống kê: ${JSON.stringify(contextData.stats)}
 Dữ liệu mẫu: ${JSON.stringify(contextData.sample)}
