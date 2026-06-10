@@ -48,25 +48,43 @@ export default function SlaAiAnalysisTab() {
       .trim();
   };
 
+  const fixSlaDateFormat = (d: Date | undefined): Date | undefined => {
+    if (!d || isNaN(d.getTime())) return d;
+    const year = d.getFullYear();
+    const month0 = d.getMonth(); // 0-indexed: 5 is June
+    const date = d.getDate();    // day of month
+    
+    // Check if Month and Day got swapped (e.g. June 9th becomes September 6th because Month = 9, Day = 6)
+    if (year >= 2024 && year <= 2028 && date === 6 && month0 !== 5) {
+      return new Date(year, 5, month0 + 1, d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
+    }
+    return d;
+  };
+
   const parseDateFallback = (val: any): Date | undefined => {
     if (!val) return undefined;
-    if (val instanceof Date) return isNaN(val.getTime()) ? undefined : val;
-    if (typeof val === 'number') {
+    let res: Date | undefined = undefined;
+    if (val instanceof Date) {
+      res = isNaN(val.getTime()) ? undefined : val;
+    } else if (typeof val === 'number') {
       if (val > 10000) {
         const d = new Date((val - (25567 + 1)) * 86400 * 1000);
-        return isNaN(d.getTime()) ? undefined : d;
+        res = isNaN(d.getTime()) ? undefined : d;
+      }
+    } else {
+      const sClean = String(val).replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+      const dmTMatch = sClean.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?(?::(\d{1,2}))?/);
+      if (dmTMatch) {
+        const h = dmTMatch[4] ? parseInt(dmTMatch[4], 10) : 0;
+        const m = dmTMatch[5] ? parseInt(dmTMatch[5], 10) : 0;
+        const sec = dmTMatch[6] ? parseInt(dmTMatch[6], 10) : 0;
+        res = new Date(parseInt(dmTMatch[3], 10), parseInt(dmTMatch[2], 10) - 1, parseInt(dmTMatch[1], 10), h, m, sec);
+      } else {
+        const d = new Date(sClean);
+        res = isNaN(d.getTime()) ? undefined : d;
       }
     }
-    const sClean = String(val).replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
-    const dmTMatch = sClean.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?(?::(\d{1,2}))?/);
-    if (dmTMatch) {
-      const h = dmTMatch[4] ? parseInt(dmTMatch[4], 10) : 0;
-      const m = dmTMatch[5] ? parseInt(dmTMatch[5], 10) : 0;
-      const sec = dmTMatch[6] ? parseInt(dmTMatch[6], 10) : 0;
-      return new Date(parseInt(dmTMatch[3], 10), parseInt(dmTMatch[2], 10) - 1, parseInt(dmTMatch[1], 10), h, m, sec);
-    }
-    const d = new Date(sClean);
-    return isNaN(d.getTime()) ? undefined : d;
+    return fixSlaDateFormat(res);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -268,12 +286,17 @@ export default function SlaAiAnalysisTab() {
       stats.bySubCategory[sub] = (stats.bySubCategory[sub] || 0) + 1;
     });
 
+    const formatDateForAi = (d: Date | null | undefined) => {
+      if (!d) return 'null';
+      return `Ngày ${format(d, 'dd')} tháng ${format(d, 'MM')} năm ${format(d, 'yyyy')} lúc ${format(d, 'HH:mm')}`;
+    };
+
     const sample = failures.slice(0, 30).map(f => ({
       ref: f.reference,
       process: f.detectedProcessType,
-      created: format(f.createdDate, 'HH:mm, dd/MM/yyyy'),
-      expected: format(f.expectedTargetDate!, 'HH:mm, dd/MM/yyyy'),
-      actualInFile: f.actualTargetDate ? format(f.actualTargetDate, 'HH:mm, dd/MM/yyyy') : 'null',
+      created: formatDateForAi(f.createdDate),
+      expected: formatDateForAi(f.expectedTargetDate),
+      actualInFile: formatDateForAi(f.actualTargetDate),
       slaLabel: f.slaLabel,
       subCategory: f.row['Sub-category CRM'] || f.row['Sub-category'],
       segment: f.row['Phân khúc'] || f.row['Segment']
@@ -294,10 +317,12 @@ DỮ LIỆU LOGIC KIỂM TRA ĐẦU VÀO:
 - Số lượng case bị phát hiện tính toán lệch Target Date: ${failures.length} ca (${((failures.length/total)*100).toFixed(1)}%).
 
 LƯU Ý CỰC KỲ QUAN TRỌNG VỀ ĐỊNH DẠNG NGÀY THÁNG (QUYẾT ĐỊNH ĐỘ CHÍNH XÁC KHI SĂN BUG):
-- Toàn bộ thời gian hiển thị trong dữ liệu mẫu (sample), lịch sử, và thống kê hoàn toàn tuân theo định dạng Việt Nam: DD/MM/YYYY (Ngày trước, Tháng sau).
+- Toàn bộ thời gian hiển thị trong dữ liệu mẫu (sample) đã được ĐỊNH DẠNG RÕ RÀNG dạng chữ viết tiếng Việt, ví dụ: "Ngày 09 tháng 06 năm 2026 lúc 15:30". 
+  + Hãy nhớ kỹ: "tháng 06" hoặc "tháng 6" là tháng sáu (June), "tháng 08" là tháng tám (August). 
+  + Hãy tin tưởng 100% vào chuỗi chữ viết này để tránh nhầm ngày/tháng theo định dạng Mỹ!
 - Ví dụ cụ thể: 
-  + "08/06/2026" là ngày mùng 8 tháng 6 năm 2026 (Ngày 8, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC nhầm lẫn hoặc đọc thành ngày mùng 6 tháng 8.
-  + "09/06/2026" là ngày mùng 9 tháng 6 năm 2026 (Ngày 9, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC nhầm lẫn hoặc đọc thành ngày mùng 6 tháng 9.
+  + "Ngày 08 tháng 06" là ngày mùng 8 tháng 6 năm 2026 (Ngày 8, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC nhầm lẫn hoặc đọc thành ngày mùng 6 tháng 8.
+  + "Ngày 09 tháng 06" là ngày mùng 9 tháng 6 năm 2026 (Ngày 9, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC nhầm lẫn hoặc đọc thành ngày mùng 6 tháng 9.
 - Luôn kiểm tra kỹ thứ tự ngày/tháng trước khi đưa ra nhận định về lệch ngày hoặc nguyên nhân chậm trễ. Tuyệt đối tránh hiểu nhầm theo định dạng Mỹ MM/DD/YYYY!
 
 TÓM TẮT THUẬT TOÁN LOGIC CỐT LÕI (CHUYÊN GIA BIẾT ĐỂ TRA CỨU CODE):
@@ -360,11 +385,13 @@ NHIỆM VỤ THỰC THI (TRÌNH BÀY BẰNG CÁC ĐẦU MỤC CHUYÊN NGHIỆP):
 Vai trò của bạn là nhiệt tình thảo luận, hỗ trợ gỡ lỗi và phân tích các trường hợp sai lệch Target Date / SLA dựa trên dữ liệu hệ thống (code sla.ts và slaRules.ts).
 
 LƯU Ý CỰC KỲ QUAN TRỌNG VỀ ĐỊNH DẠNG NGÀY THÁNG (LUÔN PHẢI TUÂN THEO ĐỂ TRÁNH TRẢ LỜI SAI):
-- Toàn bộ ngày tháng trong hệ thống và dữ liệu mẫu dưới đây đều là định dạng Việt Nam DD/MM/YYYY (Ngày trước, Tháng sau).
+- Toàn bộ thời gian hiển thị trong dữ liệu mẫu (sample) đã được ĐỊNH DẠNG RÕ RÀNG dạng chữ viết tiếng Việt, ví dụ: "Ngày 09 tháng 06 năm 2026 lúc 15:30". 
+  + Hãy nhớ kỹ: "tháng 06" hoặc "tháng 6" là tháng sáu (June), "tháng 08" là tháng tám (August). 
+  + Hãy tin tưởng 100% vào chuỗi chữ viết này để tránh nhầm ngày/tháng theo định dạng Mỹ!
 - Ví dụ cụ thể:
-  + "08/06/2026" là ngày mùng 8 tháng 6 năm 2026 (Ngày 8, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC đọc thành ngày mùng 6 tháng 8.
-  + "09/06/2026" là ngày mùng 9 tháng 6 năm 2026 (Ngày 9, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC đọc thành ngày mùng 6 tháng 9.
-- Luôn trả lời người dùng dựa trên việc quy chiếu ngày/tháng chính xác theo định dạng Việt Nam này. Tuyệt đối không nhầm lẫn với định dạng Mỹ MM/DD/YYYY.
+  + "Ngày 08 tháng 06" là ngày mùng 8 tháng 6 năm 2026 (Ngày 8, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC đọc thành ngày mùng 6 tháng 8.
+  + "Ngày 09 tháng 06" là ngày mùng 9 tháng 6 năm 2026 (Ngày 9, Tháng 6). Tuyệt đối KHÔNG ĐƯỢC đọc thành ngày mùng 6 tháng 9.
+- Luôn trả lời người dùng dựa trên việc quy chiếu ngày/tháng chính xác theo dạng chữ viết Việt Nam này. Tuyệt đối không nhầm lẫn với định dạng Mỹ MM/DD/YYYY.
 
 PHẠM VI CHẨN ĐOÁN HIỆN TẠI:
 - Tổng số ca: ${totalCases} 

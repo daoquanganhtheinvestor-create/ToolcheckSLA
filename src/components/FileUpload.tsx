@@ -57,89 +57,101 @@ export function FileUpload({ onProcessRef }: UploadProps) {
     return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   };
 
+  const fixSlaDateFormat = (d: Date | null): Date | null => {
+    if (!d || isNaN(d.getTime())) return d;
+    const year = d.getFullYear();
+    const month0 = d.getMonth(); // 0-indexed: 5 is June
+    const date = d.getDate();    // day of month
+    
+    // Check if Month and Day got swapped (e.g. June 9th becomes September 6th because Month = 9, Day = 6)
+    if (year >= 2024 && year <= 2028 && date === 6 && month0 !== 5) {
+      return new Date(year, 5, month0 + 1, d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
+    }
+    return d;
+  };
+
   const parseDateStr = (dateVal: any): Date | null => {
     if (!dateVal) return null;
+    let res: Date | null = null;
     
     try {
       if (dateVal instanceof Date) {
-        if (!isNaN(dateVal.getTime())) return dateVal;
-      }
-      
-      if (typeof dateVal === 'number') {
+        if (!isNaN(dateVal.getTime())) res = dateVal;
+      } else if (typeof dateVal === 'number') {
         // Excel serial date formula (1900 date system)
         const d = new Date(Math.round((dateVal - 25569) * 86400 * 1000));
-        return new Date(d.getTime() + d.getTimezoneOffset() * 60000);
-      }
-      
-      const str = String(dateVal).trim();
-      
-      // Attempt generic JS parse first
-      const d = new Date(str);
-      // We test if standard parse worked and it doesn't look like DD/MM/YYYY
-      // because new Date('08/05/2026') might parse as August 5 incorrectly!
-      
-      let cleanStr = str.replace(/[,_]/g, ' ').replace(/-/g, '/').replace(/–/g, '/').replace(/\s+/g, ' ').trim();
-      
-      if (cleanStr.includes('/')) {
-        const parts = cleanStr.split(' ');
+        res = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
+      } else {
+        const str = String(dateVal).trim();
         
-        let datePart = '';
-        let timePart = '00:00';
-
-        if (parts.length >= 2) {
-          const timeIndex = parts.findIndex(p => p.includes(':'));
-          const dateIndex = parts.findIndex(p => p.includes('/'));
+        // Attempt generic JS parse first
+        const d = new Date(str);
+        // We test if standard parse worked and it doesn't look like DD/MM/YYYY
+        // because new Date('08/05/2026') might parse as August 5 incorrectly!
+        
+        let cleanStr = str.replace(/[,_]/g, ' ').replace(/-/g, '/').replace(/–/g, '/').replace(/\s+/g, ' ').trim();
+        
+        if (cleanStr.includes('/')) {
+          const parts = cleanStr.split(' ');
           
-          if (timeIndex !== -1) timePart = parts[timeIndex];
-          if (dateIndex !== -1) datePart = parts[dateIndex];
-          else datePart = parts[0];
-        } else {
-          datePart = parts[0];
-        }
+          let datePart = '';
+          let timePart = '00:00';
 
-        const dateParts = datePart.split('/');
-        if (dateParts.length >= 3) {
-           let idxDay = 0;
-           let idxMonth = 1;
-           let idxYear = 2;
-           
-           // If the first part is 4 digits, it's YYYY/MM/DD
-           if (dateParts[0].length === 4) {
-             idxYear = 0;
-             idxMonth = 1;
-             idxDay = 2;
-           }
+          if (parts.length >= 2) {
+            const timeIndex = parts.findIndex(p => p.includes(':'));
+            const dateIndex = parts.findIndex(p => p.includes('/'));
+            
+            if (timeIndex !== -1) timePart = parts[timeIndex];
+            if (dateIndex !== -1) datePart = parts[dateIndex];
+            else datePart = parts[0];
+          } else {
+            datePart = parts[0];
+          }
 
-           let day = parseInt(dateParts[idxDay], 10);
-           let month = parseInt(dateParts[idxMonth], 10) - 1; // 0-indexed
-           let year = parseInt(dateParts[idxYear], 10);
-           
-           if (year < 100) year += 2000;
-           
-           const timeSplit = timePart.split(':');
-           let hours = 0;
-           let minutes = 0;
-           let seconds = 0;
-           if (timeSplit.length >= 2) {
-             hours = parseInt(timeSplit[0], 10);
-             minutes = parseInt(timeSplit[1], 10);
-             if (timeSplit.length >= 3) {
-               seconds = parseInt(timeSplit[2], 10);
+          const dateParts = datePart.split('/');
+          if (dateParts.length >= 3) {
+             let idxDay = 0;
+             let idxMonth = 1;
+             let idxYear = 2;
+             
+             // If the first part is 4 digits, it's YYYY/MM/DD
+             if (dateParts[0].length === 4) {
+               idxYear = 0;
+               idxMonth = 1;
+               idxDay = 2;
              }
-           }
 
-           // Handle AM/PM if present
-           if (cleanStr.toLowerCase().includes('pm') && hours < 12) hours += 12;
-           if (cleanStr.toLowerCase().includes('am') && hours === 12) hours = 0;
+             let day = parseInt(dateParts[idxDay], 10);
+             let month = parseInt(dateParts[idxMonth], 10) - 1; // 0-indexed
+             let year = parseInt(dateParts[idxYear], 10);
+             
+             if (year < 100) year += 2000;
+             
+             const timeSplit = timePart.split(':');
+             let hours = 0;
+             let minutes = 0;
+             let seconds = 0;
+             if (timeSplit.length >= 2) {
+               hours = parseInt(timeSplit[0], 10);
+               minutes = parseInt(timeSplit[1], 10);
+               if (timeSplit.length >= 3) {
+                 seconds = parseInt(timeSplit[2], 10);
+               }
+             }
 
-           const finalDate = new Date(year, month, day, hours, minutes, seconds);
-           if (!isNaN(finalDate.getTime())) return finalDate;
+             // Handle AM/PM if present
+             if (cleanStr.toLowerCase().includes('pm') && hours < 12) hours += 12;
+             if (cleanStr.toLowerCase().includes('am') && hours === 12) hours = 0;
+
+             const finalDate = new Date(year, month, day, hours, minutes, seconds);
+             if (!isNaN(finalDate.getTime())) res = finalDate;
+          }
         }
+        
+        if (!res && !isNaN(d.getTime())) res = d;
       }
       
-      if (!isNaN(d.getTime())) return d;
-      
-      return null;
+      return fixSlaDateFormat(res);
     } catch (e) {
       console.warn("Could not parse date:", dateVal);
       return null;

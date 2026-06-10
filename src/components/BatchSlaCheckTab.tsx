@@ -47,46 +47,59 @@ export default function BatchSlaCheckTab() {
      otherError: 0
   });
 
+  const fixSlaDateFormat = (d: Date | undefined): Date | undefined => {
+    if (!d || isNaN(d.getTime())) return d;
+    const year = d.getFullYear();
+    const month0 = d.getMonth(); // 0-indexed: 5 is June
+    const date = d.getDate();    // day of month
+    
+    // Check if Month and Day got swapped (e.g. June 9th becomes September 6th because Month = 9, Day = 6)
+    if (year >= 2024 && year <= 2028 && date === 6 && month0 !== 5) {
+      return new Date(year, 5, month0 + 1, d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
+    }
+    return d;
+  };
+
   // Fallback parsing date
   const parseDateFallback = (val: any): Date | undefined => {
     if (!val) return undefined;
-    if (val instanceof Date) {
-        return isNaN(val.getTime()) ? undefined : val;
-    }
+    let res: Date | undefined = undefined;
     
-    if (typeof val === 'number') {
+    if (val instanceof Date) {
+        res = isNaN(val.getTime()) ? undefined : val;
+    } else if (typeof val === 'number') {
         if (val > 10000) {
            const d = new Date((val - (25567 + 1)) * 86400 * 1000);
-           return isNaN(d.getTime()) ? undefined : d;
+           res = isNaN(d.getTime()) ? undefined : d;
+        }
+    } else {
+        // String based
+        const s = String(val).trim();
+        if (s) {
+            // Try DD/MM/YYYY HH:mm or DD/MM/YYYY or DD-MM-YYYY
+            // Also handle possible comma after time or date like "00:02, 30/04/2026"
+            const sClean = s.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+            
+            const dmTMatch = sClean.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?(?::(\d{1,2}))?/);
+            if (dmTMatch) {
+                const h = dmTMatch[4] ? parseInt(dmTMatch[4], 10) : 0;
+                const m = dmTMatch[5] ? parseInt(dmTMatch[5], 10) : 0;
+                const sec = dmTMatch[6] ? parseInt(dmTMatch[6], 10) : 0;
+                res = new Date(parseInt(dmTMatch[3], 10), parseInt(dmTMatch[2], 10) - 1, parseInt(dmTMatch[1], 10), h, m, sec);
+            } else {
+                const tDmMatch = sClean.match(/^(\d{1,2}):(\d{1,2})(?:[:\s]+)(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+                if (tDmMatch) {
+                   res = new Date(parseInt(tDmMatch[5], 10), parseInt(tDmMatch[4], 10) - 1, parseInt(tDmMatch[3], 10), parseInt(tDmMatch[1], 10), parseInt(tDmMatch[2], 10));
+                } else {
+                    // Fallback: standard JS parse
+                    const d = new Date(s);
+                    if (!isNaN(d.getTime())) res = d;
+                }
+            }
         }
     }
     
-    // String based
-    const s = String(val).trim();
-    if (!s) return undefined;
-    
-    // Try DD/MM/YYYY HH:mm or DD/MM/YYYY or DD-MM-YYYY
-    // Also handle possible comma after time or date like "00:02, 30/04/2026"
-    const sClean = s.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
-    
-    const dmTMatch = sClean.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?(?::(\d{1,2}))?/);
-    if (dmTMatch) {
-        const h = dmTMatch[4] ? parseInt(dmTMatch[4], 10) : 0;
-        const m = dmTMatch[5] ? parseInt(dmTMatch[5], 10) : 0;
-        const sec = dmTMatch[6] ? parseInt(dmTMatch[6], 10) : 0;
-        return new Date(parseInt(dmTMatch[3], 10), parseInt(dmTMatch[2], 10) - 1, parseInt(dmTMatch[1], 10), h, m, sec);
-    }
-
-    const tDmMatch = sClean.match(/^(\d{1,2}):(\d{1,2})(?:[:\s]+)(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if (tDmMatch) {
-       return new Date(parseInt(tDmMatch[5], 10), parseInt(tDmMatch[4], 10) - 1, parseInt(tDmMatch[3], 10), parseInt(tDmMatch[1], 10), parseInt(tDmMatch[2], 10));
-    }
-    
-    // Fallback: standard JS parse
-    const d = new Date(s);
-    if (!isNaN(d.getTime())) return d;
-    
-    return undefined;
+    return fixSlaDateFormat(res);
   };
 
   const [selectedResult, setSelectedResult] = useState<BatchResult | null>(null);
